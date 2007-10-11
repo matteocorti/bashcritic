@@ -1,12 +1,15 @@
 #!/usr/bin/perl
 
+# RCS information (required by Perl::Critic)
+#   $Id$
+#   $Revision$
+#   $HeadURL$
+#   $Date$
+
 use 5.008;
 use strict;
 use warnings;
 use Carp;
-
-eval 'exec /usr/bin/perl  -S $0 ${1+"$@"}'
-    if 0; # not running under some shell
 
 use version; our $VERSION = '1.0.0';
 
@@ -75,9 +78,9 @@ sub perform_checks {
     my $file = shift;
 
     for my $check (@checks) {
-        &$check($file, read_file($file));
+        &{$check}( $file, read_file($file) );
     }
-    
+
     return;
 
 }
@@ -85,17 +88,17 @@ sub perform_checks {
 # check templates
 
 sub check_pattern {
-    
+
     my $file    = shift;
     my $pattern = shift;
     my $message = shift;
     my @lines   = @_;
-    
+
     my $counter = 0;
 
     for my $line (@lines) {
         $counter++;
-        if ($line =~ /$pattern/mx) {
+        if ( $line =~ /$pattern/mx ) {
             my $error = $message;
             $error =~ s/LINE_NUMBER/$counter/mx;
             print "$error\n";
@@ -103,7 +106,7 @@ sub check_pattern {
     }
 
     return;
-    
+
 }
 
 ##############################################################################
@@ -112,15 +115,12 @@ sub check_pattern {
 ############################
 # Parse command line options
 
-Getopt::Long::Configure(
-    'bundling',
-    'no_ignore_case'
-);
+Getopt::Long::Configure( 'bundling', 'no_ignore_case' );
 
 my $result = GetOptions(
-    'help|h|?'          => \$help,
-    'verbose|v+'        => \$verbosity,
-    'version|V'         => sub { print "bashcritic version $VERSION\n"; exit; }
+    'help|h|?'   => \$help,
+    'verbose|v+' => \$verbosity,
+    'version|V'  => sub { print "bashcritic version $VERSION\n"; exit; }
 );
 
 ##############################
@@ -128,14 +128,14 @@ my $result = GetOptions(
 
 my @FILES = ();
 
-if ( !@ARGV || (@ARGV == 1 && $ARGV[0] eq q{-}) )  {
+if ( !@ARGV || ( @ARGV == 1 && $ARGV[0] eq q{-} ) ) {
 
     # Reading code from STDIN.  All the code is slurped into
     # a string.  PPI will barf if the string is just whitespace.
     my $code_string = do { local $RS = undef; <STDIN> };
 
     # Notice if STDIN was closed (pipe error, etc)
-    if ( ! defined $code_string ) {
+    if ( !defined $code_string ) {
         $code_string = q{};
     }
 
@@ -146,20 +146,20 @@ else {
 
     # Test to make sure all the specified files or directories
     # actually exist.  If any one of them is bogus, then die.
-    if ( my $nonexistant = first { ! -e $_ } @ARGV ) {
+    if ( my $nonexistant = first { !-e $_ } @ARGV ) {
         my $msg = qq{No such file or directory: '$nonexistant'};
-        pod2usage( -exitstatus => 1, -message => $msg, -verbose => 0);
+        pod2usage( -exitstatus => 1, -message => $msg, -verbose => 0 );
     }
-    
+
     @FILES = @ARGV;
 }
 
 @checks = (
 
     ####################
-    # portability checks
-    #
-    # checks from rules described by http://www.bash-hackers.org/wiki/doku.php?id=scripting:nonportable
+# portability checks
+#
+# checks from rules described by http://www.bash-hackers.org/wiki/doku.php?id=scripting:nonportable
 
     # source FILE
     sub {
@@ -168,7 +168,7 @@ else {
             $file,
             'source\ ',
             "Severity $STERN at $file:LINE_NUMBER: "
-                . '"source FILE" is not portable use ". FILE" instead',
+              . '"source FILE" is not portable use ". FILE" instead',
             @_,
         );
     },
@@ -180,8 +180,8 @@ else {
             $file,
             'declare\ ',
             "Severity $STERN at $file:LINE_NUMBER: "
-                . '"declare keyword" is not portable use "typeset keyword" to define local variables '
-                    . '(or variables with special attributes)',
+              . '"declare keyword" is not portable use "typeset keyword" to define local variables '
+              . '(or variables with special attributes)',
             @_,
         );
     },
@@ -193,7 +193,7 @@ else {
             $file,
             '<<<',
             "Severity $STERN at $file:LINE_NUMBER: "
-                . 'Avoid here-strings (a special form of the here-document) in portable scripts',
+              . 'Avoid here-strings (a special form of the here-document) in portable scripts',
             @_,
         );
     },
@@ -205,7 +205,7 @@ else {
             $file,
             'export\ .*=',
             "Severity $STERN at $file:LINE_NUMBER: "
-                . 'Though POSIX allows it, many shells don’t want the assignment and the exporting in one command',
+              . 'Though POSIX allows it, many shells don’t want the assignment and the exporting in one command',
             @_,
         );
     },
@@ -217,19 +217,19 @@ else {
             $file,
             '^[^:]*\(\(.*\)\)',
             "Severity $STERN at $file:LINE_NUMBER: "
-                . 'POSIX does’t define an arithmetic compund command, many shells don’t know it. Using the pseudo-command : and the arithmetic expansion $(( )) is a kind of workaround here.',
+              . 'POSIX does’t define an arithmetic compund command, many shells don’t know it. Using the pseudo-command : and the arithmetic expansion $(( )) is a kind of workaround here.',
             @_,
         );
     },
 
-    # Bashish test keyword 
+    # Bashish test keyword
     sub {
         my $file = shift;
         check_pattern(
             $file,
             '\[\[\ .*\ \]\]',
             "Severity $STERN at $file:LINE_NUMBER: "
-                . 'The Bashish test keyword "[[" is reserved by POSIX®, but not defined. Use the old fashioned way with the test command ("test" or "[").',
+              . 'The Bashish test keyword "[[" is reserved by POSIX®, but not defined. Use the old fashioned way with the test command ("test" or "[").',
             @_,
         );
     },
@@ -246,7 +246,7 @@ else {
             $file,
             '(&>)|(>&)',
             "Severity $STERN at $file:LINE_NUMBER: "
-                . 'The &>FILE >&FILE redirection syntax is short for >FILE 2>&1 and is derived from the C-Shell. It’s very old and not part of POSIX',
+              . 'The &>FILE >&FILE redirection syntax is short for >FILE 2>&1 and is derived from the C-Shell. It’s very old and not part of POSIX',
             @_,
         );
     },
@@ -258,8 +258,8 @@ else {
             $file,
             '\$\[.*\]',
             "Severity $STERN at $file:LINE_NUMBER: "
-                . 'The $[EXPRESSION] syntax is completely replaced by the POSIX-conform arithmetic expansion $((EXPRESSION))'.
-            @_,
+              . 'The $[EXPRESSION] syntax is completely replaced by the POSIX-conform arithmetic expansion $((EXPRESSION))'
+              . @_,
         );
     },
 
@@ -270,7 +270,7 @@ else {
             $file,
             '\`.*\`',
             "Severity $HARSH at $file:LINE_NUMBER: "
-                . '`COMMANDS` is an older form of the command substitution. The usage of the POSIX-form $(COMMANDS) is preferred.',
+              . '`COMMANDS` is an older form of the command substitution. The usage of the POSIX-form $(COMMANDS) is preferred.',
             @_,
         );
     },
@@ -280,9 +280,9 @@ else {
         my $file = shift;
         check_pattern(
             $file,
-            'function\ *'.$NAME_PATTERN.'\ *{',
+            'function\ *' . $NAME_PATTERN . '\ *{',
             "Severity $STERN at $file:LINE_NUMBER: "
-                . 'The "function NAME { ...; }" form of the function definition is not recommended simply use NAME() { ...; } to define a function.',
+              . 'The "function NAME { ...; }" form of the function definition is not recommended simply use NAME() { ...; } to define a function.',
             @_,
         );
     },
@@ -294,7 +294,7 @@ else {
             $file,
             'let\ ',
             "Severity $HARSH at $file:LINE_NUMBER: "
-                . '"let MATH" is the classic form of the arithmetic evaluation command. Bash has an own compound command for that, which should be used if possible: ": $((MATH))."',
+              . '"let MATH" is the classic form of the arithmetic evaluation command. Bash has an own compound command for that, which should be used if possible: ": $((MATH))."',
             @_,
         );
     },
@@ -309,15 +309,13 @@ else {
         my $counter = 0;
         for my $line (@lines) {
             $counter++;
-            if (length $line > 78) {
+            if ( length $line > 78 ) {
                 print "Severity $CRUEL at $file:$counter: "
-                    . "line is longer than 78 characters, consider splitting it over multiple lines to increase readability.\n";
+                  . "line is longer than 78 characters, consider splitting it over multiple lines to increase readability.\n";
             }
         }
-    }
+    },
 
-
-    
 );
 
 for my $file (@FILES) {
