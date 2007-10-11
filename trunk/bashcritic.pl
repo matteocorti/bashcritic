@@ -1,13 +1,5 @@
 #!/usr/bin/perl
 
-## To do
-## * lines too long
-## * variables w/o {}
-## * are the parentheses needed/suggested in the function definition?
-#
-## http://www.bash-hackers.org/wiki/doku.php?id=scripting:obsolete
-## http://www.bash-hackers.org/wiki/doku.php?id=scripting:nonportable
-
 use 5.008;
 use strict;
 use warnings;
