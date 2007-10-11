@@ -4,10 +4,10 @@
 # enable substitution with:
 #   $ svn propset svn:keywords "Id Revision HeadURL Source Date"
 #
-#   $       Id: bashcritic 7 2007-10-11 15:03:27Z corti            $
-#   $ Revision: 7                                                  $
-#   $  HeadURL: https://svn.id.ethz.ch/bashcritic/trunk/bashcritic $
-#   $     Date: 2007-10-11 17:03:27 +0200 (Thu, 11 Oct 2007)       $
+#   $Id$
+#   $Revision$
+#   $HeadURL$
+#   $Date$
 
 use 5.008;
 use strict;
@@ -76,6 +76,14 @@ sub verbose {
 
 }
 
+##############################################################################
+# Usage     : perform_checks($filename)
+# Purpose   : performs all the registered checks on the given filename
+# Returns   : n/a
+# Arguments : file : name of the file to check
+# Throws    : n/a
+# Comments  : n/a
+# See also  : n/a
 sub perform_checks {
 
     my $file = shift;
@@ -88,8 +96,19 @@ sub perform_checks {
 
 }
 
-# check templates
-
+##############################################################################
+# Usage     : check_pattern($filename, $pattern, $message, @lines)
+# Purpose   : searches for the given pattern in the lines array and prints a
+#             message if found
+# Returns   : n/a
+# Arguments : $file    : name of the file to check
+#             $pattern : the pattern to look for
+#             $message : the warning message ('LINE_NUMBER' will be
+#                        substituted with the current line number)
+#             @lines   : array of lines of the given file
+# Throws    : n/a
+# Comments  : n/a
+# See also  : n/a
 sub check_pattern {
 
     my $file    = shift;
