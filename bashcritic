@@ -31,9 +31,17 @@ Getopt::Long::Configure( 'bundling', 'ignorecase', );
 ##############################################################################
 # Global vars
 
-my @checks;
+# Hash of hashes containing the checks to be perfomed
+# - name        : name of the check
+# - *           : anonymous hash with
+#   - severity    : the severity level of the check
+#   - function    : the subrouting implementing the test
+#   - description : a short description
+my %checks;
 
+my $getopt_result;
 my $help;
+my $severity  = 1;
 my $verbosity = 0;
 
 # constants
@@ -88,8 +96,15 @@ sub perform_checks {
 
     my $file = shift;
 
-    for my $check (@checks) {
-        &{$check}( $file, read_file($file) );
+    verbose "checking $file\n";
+    
+    for my $name (keys %checks) {
+
+        verbose '> checking rule: '
+            . ${$checks{$name}}{description}
+                . "\n", 1;
+        
+        &{${$checks{$name}}{function}}( $file, read_file($file) );
     }
 
     return;
@@ -139,11 +154,17 @@ sub check_pattern {
 
 Getopt::Long::Configure( 'bundling', 'no_ignore_case' );
 
-my $result = GetOptions(
+$getopt_result = GetOptions(
+    '1|brutal'   => sub { $severity = 1; },
+    '2|cruel'    => sub { $severity = 2; },
+    '3|harsh'    => sub { $severity = 3; },
+    '4|stern'    => sub { $severity = 4; },
+    '5|gentle'   => sub { $severity = 5; },
+    'severity'   => \$severity,
     'help|h|?'   => \$help,
     'verbose|v+' => \$verbosity,
-    'version|V'  => sub { print "bashcritic version $VERSION\n"; exit; }
-);
+    'version|V'  => sub { print "bashcritic version $VERSION\n"; exit; },
+) or pod2usage();
 
 ##############################
 # Parse command line arguments
@@ -176,169 +197,187 @@ else {
     @FILES = @ARGV;
 }
 
-@checks = (
+##############################################################################
+# checks
 
-    ####################
+# fill in names severities and descriptions first (functions
+# will be inserted later so that they can use these fields in the
+# definition
+
+####################
 # portability checks
 #
 # checks from rules described by http://www.bash-hackers.org/wiki/doku.php?id=scripting:nonportable
 
-    # source FILE
-    sub {
-        my $file = shift;
-        check_pattern(
-            $file,
-            'source\ ',
-            "Severity $STERN at $file:LINE_NUMBER: "
-              . '"source FILE" is not portable use ". FILE" instead',
-            @_,
-        );
-    },
+# SOURCE
 
-    # declare keyword
-    sub {
-        my $file = shift;
-        check_pattern(
-            $file,
-            'declare\ ',
-            "Severity $STERN at $file:LINE_NUMBER: "
-              . '"declare keyword" is not portable use "typeset keyword" to define local variables '
-              . '(or variables with special attributes)',
-            @_,
-        );
-    },
+$checks{SOURCE} = {
+    severity    => $STERN,
+    description => '"source FILE" is not portable use ". FILE" instead',
+};
+$checks{SOURCE}{function} = sub {
+    my $file = shift;
+    check_pattern(
+        $file,
+        'source\ ',
+        "Severity $checks{SOURCE}{severity} at $file:LINE_NUMBER: " . $checks{SOURCE}{description},
+        @_,
+    );
+};        
 
-    # here strings
-    sub {
-        my $file = shift;
-        check_pattern(
-            $file,
-            '<<<',
-            "Severity $STERN at $file:LINE_NUMBER: "
-              . 'Avoid here-strings (a special form of the here-document) in portable scripts',
-            @_,
-        );
-    },
+# DECLARE
 
-    # export with assignment
-    sub {
-        my $file = shift;
-        check_pattern(
-            $file,
-            'export\ .*=',
-            "Severity $STERN at $file:LINE_NUMBER: "
-              . 'Though POSIX allows it, many shells don’t want the assignment and the exporting in one command',
-            @_,
-        );
-    },
+$checks{DECLARE} = {
+    severity    => $STERN,
+    description => '"declare keyword" is not portable use "typeset keyword" to define local variables '
+        . '(or variables with special attributes)',
+};
+$checks{DECLARE}{function} = sub {
+    my $file = shift;
+    check_pattern(
+        $file,
+        'declare\ ',
+        "Severity $checks{DECLARE}{severity} at $file:LINE_NUMBER: " . $checks{DECLARE}{description},
+        @_,
+    );
+};
 
-    # arithmetic compunds
-    sub {
-        my $file = shift;
-        check_pattern(
-            $file,
-            '^[^:]*\(\(.*\)\)',
-            "Severity $STERN at $file:LINE_NUMBER: "
-              . 'POSIX does’t define an arithmetic compund command, many shells don’t know it. Using the pseudo-command : and the arithmetic expansion $(( )) is a kind of workaround here.',
-            @_,
-        );
-    },
+# HERE_STRING
+$checks{HERE_STRING} = {
+    severity    => $STERN,
+    description => 'Avoid here-strings (a special form of the here-document) in portable scripts',
+};
+$checks{HERE_STRING}{function} = sub {
+    my $file = shift;
+    check_pattern(
+        $file,
+        '<<<',
+        "Severity $checks{HERE_STRING}{severity} at $file:LINE_NUMBER: " . $checks{HERE_STRING}{description},
+        @_,
+    );
+};
 
-    # Bashish test keyword
-    sub {
-        my $file = shift;
-        check_pattern(
-            $file,
-            '\[\[\ .*\ \]\]',
-            "Severity $STERN at $file:LINE_NUMBER: "
-              . 'The Bashish test keyword "[[" is reserved by POSIX®, but not defined. Use the old fashioned way with the test command ("test" or "[").',
-            @_,
-        );
-    },
+# EXPORT_ASSIGN
+$checks{EXPORT_ASSIGN} = {
+    severity    => $STERN,
+    description => 'Though POSIX allows it, many shells don’t want the assignment and the exporting in one command',
+};
+$checks{EXPORT_ASSIGN}{function} = sub {
+    my $file = shift;
+    check_pattern(
+        $file,
+        'export\ .*=',
+        "Severity $checks{EXPORT_ASSIGN}{severity} at $file:LINE_NUMBER: " . $checks{EXPORT_ASSIGN}{description},
+        @_,
+    );
+};
 
-    #####################
-    # obsolete constructs
-    #
-    # http://www.bash-hackers.org/wiki/doku.php?id=scripting:obsolete
-
-    # c-shell redirection
-    sub {
-        my $file = shift;
-        check_pattern(
-            $file,
-            '(&>)|(>&)',
-            "Severity $STERN at $file:LINE_NUMBER: "
-              . 'The &>FILE >&FILE redirection syntax is short for >FILE 2>&1 and is derived from the C-Shell. It’s very old and not part of POSIX',
-            @_,
-        );
-    },
-
-    # $[ EXPRESSION ]
-    sub {
-        my $file = shift;
-        check_pattern(
-            $file,
-            '\$\[.*\]',
-            "Severity $STERN at $file:LINE_NUMBER: "
-              . 'The $[EXPRESSION] syntax is completely replaced by the POSIX-conform arithmetic expansion $((EXPRESSION))'
-              . @_,
-        );
-    },
-
-    # ` COMMAND `
-    sub {
-        my $file = shift;
-        check_pattern(
-            $file,
-            '\`.*\`',
-            "Severity $HARSH at $file:LINE_NUMBER: "
-              . '`COMMANDS` is an older form of the command substitution. The usage of the POSIX-form $(COMMANDS) is preferred.',
-            @_,
-        );
-    },
-
-    # function keyword
-    sub {
-        my $file = shift;
-        check_pattern(
-            $file,
-            'function\ *' . $NAME_PATTERN . '\ *{',
-            "Severity $STERN at $file:LINE_NUMBER: "
-              . 'The "function NAME { ...; }" form of the function definition is not recommended simply use NAME() { ...; } to define a function.',
-            @_,
-        );
-    },
-
-    # let EXPRESSION
-    sub {
-        my $file = shift;
-        check_pattern(
-            $file,
-            'let\ ',
-            "Severity $HARSH at $file:LINE_NUMBER: "
-              . '"let MATH" is the classic form of the arithmetic evaluation command. Bash has an own compound command for that, which should be used if possible: ": $((MATH))."',
-            @_,
-        );
-    },
-
-    ############
-    # Formatting
-
-    # lines too long
-    sub {
-        my $file    = shift;
-        my @lines   = read_file($file);
-        my $counter = 0;
-        for my $line (@lines) {
-            $counter++;
-            if ( length $line > 78 ) {
-                print "Severity $CRUEL at $file:$counter: "
-                  . "line is longer than 78 characters, consider splitting it over multiple lines to increase readability.\n";
-            }
-        }
-    },
-
-);
+#
+#    # arithmetic compunds
+#    sub {
+#        my $file = shift;
+#        check_pattern(
+#            $file,
+#            '^[^:]*\(\(.*\)\)',
+#            "Severity $STERN at $file:LINE_NUMBER: "
+#              . 'POSIX does’t define an arithmetic compund command, many shells don’t know it. Using the pseudo-command : and the arithmetic expansion $(( )) is a kind of workaround here.',
+#            @_,
+#        );
+#    },
+#
+#    # Bashish test keyword
+#    sub {
+#        my $file = shift;
+#        check_pattern(
+#            $file,
+#            '\[\[\ .*\ \]\]',
+#            "Severity $STERN at $file:LINE_NUMBER: "
+#              . 'The Bashish test keyword "[[" is reserved by POSIX®, but not defined. Use the old fashioned way with the test command ("test" or "[").',
+#            @_,
+#        );
+#    },
+#
+#    #####################
+#    # obsolete constructs
+#    #
+#    # http://www.bash-hackers.org/wiki/doku.php?id=scripting:obsolete
+#
+#    # c-shell redirection
+#    sub {
+#        my $file = shift;
+#        check_pattern(
+#            $file,
+#            '(&>)|(>&)',
+#            "Severity $STERN at $file:LINE_NUMBER: "
+#              . 'The &>FILE >&FILE redirection syntax is short for >FILE 2>&1 and is derived from the C-Shell. It’s very old and not part of POSIX',
+#            @_,
+#        );
+#    },
+#
+#    # $[ EXPRESSION ]
+#    sub {
+#        my $file = shift;
+#        check_pattern(
+#            $file,
+#            '\$\[.*\]',
+#            "Severity $STERN at $file:LINE_NUMBER: "
+#              . 'The $[EXPRESSION] syntax is completely replaced by the POSIX-conform arithmetic expansion $((EXPRESSION))'
+#              . @_,
+#        );
+#    },
+#
+#    # ` COMMAND `
+#    sub {
+#        my $file = shift;
+#        check_pattern(
+#            $file,
+#            '\`.*\`',
+#            "Severity $HARSH at $file:LINE_NUMBER: "
+#              . '`COMMANDS` is an older form of the command substitution. The usage of the POSIX-form $(COMMANDS) is preferred.',
+#            @_,
+#        );
+#    },
+#
+#    # function keyword
+#    sub {
+#        my $file = shift;
+#        check_pattern(
+#            $file,
+#            'function\ *' . $NAME_PATTERN . '\ *{',
+#            "Severity $STERN at $file:LINE_NUMBER: "
+#              . 'The "function NAME { ...; }" form of the function definition is not recommended simply use NAME() { ...; } to define a function.',
+#            @_,
+#        );
+#    },
+#
+#    # let EXPRESSION
+#    sub {
+#        my $file = shift;
+#        check_pattern(
+#            $file,
+#            'let\ ',
+#            "Severity $HARSH at $file:LINE_NUMBER: "
+#              . '"let MATH" is the classic form of the arithmetic evaluation command. Bash has an own compound command for that, which should be used if possible: ": $((MATH))."',
+#            @_,
+#        );
+#    },
+#
+#    ############
+#    # Formatting
+#
+#    # lines too long
+#    sub {
+#        my $file    = shift;
+#        my @lines   = read_file($file);
+#        my $counter = 0;
+#        for my $line (@lines) {
+#            $counter++;
+#            if ( length $line > 78 ) {
+#                print "Severity $CRUEL at $file:$counter: "
+#                  . "line is longer than 78 characters, consider splitting it over multiple lines to increase readability.\n";
+#            }
+#        }
+#    },
 
 for my $file (@FILES) {
     perform_checks($file);
@@ -348,9 +387,18 @@ for my $file (@FILES) {
 
 __END__
 
+=pod
+
 =head1 NAME
 
-bashcritic critiques shell scripts
+C<bashcritic> - critiques shell scripts
+
+=head1 SYNOPSIS
+
+  bashcritic [-12345 | -brutal | -cruel | -harsh | -stern | -gentle]
+             [-severity number | name]
+             [-verbose ]
+             {FILE | STDIN}
 
 =head1 DESCRIPTION
 
@@ -360,17 +408,15 @@ critiques shell scripts
 
 Version 1.0.0
 
-=head1 USAGE
-
-bashcritic [options] files
-
 =head1 REQUIRED ARGUMENTS
 
 none
 
 =head1 OPTIONS
 
-=head1 EXAMPLE
+=head1 USAGE EXAMPLES
+
+bashcritic -gentle file_to_analyze
 
 =head1 DIAGNOSTICS
 
