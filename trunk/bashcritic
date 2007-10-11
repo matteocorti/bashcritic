@@ -4,10 +4,10 @@
 # enable substitution with:
 #   $ svn propset svn:keywords "Id Revision HeadURL Source Date"
 #
-#   $Id$
-#   $Revision$
-#   $HeadURL$
-#   $Date$
+#   $       Id: bashcritic 7 2007-10-11 15:03:27Z corti            $
+#   $ Revision: 7                                                  $
+#   $  HeadURL: https://svn.id.ethz.ch/bashcritic/trunk/bashcritic $
+#   $     Date: 2007-10-11 17:03:27 +0200 (Thu, 11 Oct 2007)       $
 
 use 5.008;
 use strict;
