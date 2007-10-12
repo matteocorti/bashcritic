@@ -54,8 +54,6 @@ my $HARSH  = 3;
 my $CRUEL  = 2;
 my $BRUTAL = 1;
 
-my $NON_POSIX = 4;
-
 # according to sysexits on FreeBSD (should check if there is a CPAN module with exit codes
 my $EXIT_USAGE       = 64;
 my $EXIT_UNAVAILABLE = 69;
@@ -298,6 +296,25 @@ sub initialize_checks() {
         return;
     };
 
+    # ARITH_COMPOUND
+    $checks{ARITH_COMPOUND} = {
+        severity    => $STERN,
+        description => q{POSIX does't define an arithmetic compund command, many shells}
+            . q{don't know it. Using the pseudo-command : and the arithmetic expansion}
+                . q{ $(( )) is a kind of workaround here.},
+    };
+    $checks{ARITH_COMPOUND}{function} = sub  {
+        my $file = shift;
+        check_pattern(
+            $file,
+            '^[^:]*\(\(.*\)\)',
+            "Severity $checks{ARITH_COMPOUND}{severity} at $file:LINE_NUMBER: "
+                . $checks{ARITH_COMPOUND}{description},
+            @_,
+        );
+        return;
+    };
+
     # BASHISH_TEST
     $checks{BASHISH_TEST} = {
         severity    => $STERN,
@@ -397,8 +414,10 @@ sub initialize_checks() {
 
     # LET
     $checks{LET} = {
-        severity    => $NON_POSIX,
-        description => q{Consider using POSIX arithmetic expansion $(( MATH )) instead of "let MATH"},
+        severity    => $HARSH,
+        description => q{"let MATH" is the classic form of the arithmetic evaluation }
+            . q{command. Bash has an own compound command for that, which should be used}
+                . q{ if possible: ": $((MATH))".} ,
     };
     $checks{LET}{function} = sub {
         my $file = shift;
@@ -471,10 +490,6 @@ $getopt_result = GetOptions(
 if (defined $list_format) {
     list_checks($list_format);
     exit 0;
-}
-
-if (defined $help) {
-    pod2usage();
 }
 
 ##############################
