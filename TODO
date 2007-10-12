@@ -1,7 +1,16 @@
 To do
------
+=====
+
+Programming
+===========
+
+--color/--no-color
+
+* sort the checks hash by severity? description? in the listing
 
 Check for
+=========
+
 * variables w/o {}
 * sed .... file > file
-
+* builtin compatibility
