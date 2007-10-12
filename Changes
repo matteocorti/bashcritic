@@ -1,5 +1,4 @@
 2007-10-12  Matteo Corti  <matteo.corti@id.ethz.ch>
 
-	* bashcritic (initialize_checks): updated rules on math expantion
-	
+	* bashcritic: added British spelling for --colour	
 

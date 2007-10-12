@@ -474,17 +474,17 @@ Getopt::Long::Configure(
 );
 
 $getopt_result = GetOptions(
-    '1|brutal'   => sub { $severity = 1; },
-    '2|cruel'    => sub { $severity = 2; },
-    '3|harsh'    => sub { $severity = 3; },
-    '4|stern'    => sub { $severity = 4; },
-    '5|gentle'   => sub { $severity = 5; },
-    'list|l:s'   => \$list_format,            # optional string
-    'color!'     => \$color,                  # can be negated
-    'severity'   => \$severity,
-    'help|h|?'   => \$help,
-    'verbose|v+' => \$verbosity,
-    'version|V'  => sub { print "bashcritic version $VERSION\n"; exit; },
+    '1|brutal'      => sub { $severity = 1; },
+    '2|cruel'       => sub { $severity = 2; },
+    '3|harsh'       => sub { $severity = 3; },
+    '4|stern'       => sub { $severity = 4; },
+    '5|gentle'      => sub { $severity = 5; },
+    'list|l:s'      => \$list_format,            # optional string
+    'color|colour!' => \$color,                  # can be negated
+    'severity'      => \$severity,
+    'help|h|?'      => \$help,
+    'verbose|v+'    => \$verbosity,
+    'version|V'     => sub { print "bashcritic version $VERSION\n"; exit; },
 ) or pod2usage();
 
 if (defined $list_format) {
