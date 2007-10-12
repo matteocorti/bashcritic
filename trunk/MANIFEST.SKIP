@@ -9,6 +9,7 @@
 ^cover_db
 ^MANIFEST\.SKIP$
 ^bashcritic-
+^Makefile$
 ^Makefile.old$
 ^pm_to_blib$
 ^.#
