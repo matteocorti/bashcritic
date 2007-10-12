@@ -22,6 +22,7 @@ use English qw(-no_match_vars);
 use Getopt::Long;
 use Pod::Usage qw(pod2usage);
 use List::Util qw(first);
+use Term::ANSIColor;
 
 ##############################################################################
 # Configuration
@@ -41,7 +42,7 @@ my %checks;
 
 my $getopt_result;
 my $help;
-my $severity  = 1;
+my $severity  = 5;
 my $verbosity = 0;
 
 # constants
@@ -93,22 +94,39 @@ sub verbose {
 # Comments  : n/a
 # See also  : n/a
 sub perform_checks {
-
     my $file = shift;
-
     verbose "checking $file\n";
-    
     for my $name (keys %checks) {
-
-        verbose '> checking rule: '
-            . ${$checks{$name}}{description}
-                . "\n", 1;
-        
-        &{${$checks{$name}}{function}}( $file, read_file($file) );
+        if (${$checks{$name}}{severity} >= $severity) {        
+            verbose '> checking rule: '
+                . ${$checks{$name}}{description}
+                    . "\n", 1;
+            &{${$checks{$name}}{function}}( $file, read_file($file) );
+        }
     }
-
     return;
+}
 
+##############################################################################
+# Usage     : colorize_checks()
+# Purpose   : colorizes the checks according to severity
+# Returns   : n/a
+# Arguments : n/a
+# Throws    : n/a
+# Comments  : n/a
+# See also  : n/a
+sub colorize_checks {
+    for my $key (keys %checks) {
+        if ($checks{$key}{severity} == $GENTLE) {
+            $checks{$key}{description} =
+                Term::ANSIColor::colored( $checks{$key}{description}, 'bold red' );
+        }
+        if ($checks{$key}{severity} == $STERN) {
+            $checks{$key}{description} =
+                Term::ANSIColor::colored( $checks{$key}{description}, 'yellow' );
+        }
+    }
+    return;
 }
 
 ##############################################################################
@@ -126,10 +144,7 @@ sub perform_checks {
 # See also  : n/a
 sub check_pattern {
 
-    my $file    = shift;
-    my $pattern = shift;
-    my $message = shift;
-    my @lines   = @_;
+    my ($file, $pattern, $message, @lines) = @_;
 
     my $counter = 0;
 
@@ -207,10 +222,10 @@ else {
 ####################
 # portability checks
 #
-# checks from rules described by http://www.bash-hackers.org/wiki/doku.php?id=scripting:nonportable
+# checks from rules described by
+# http://www.bash-hackers.org/wiki/doku.php?id=scripting:nonportable
 
 # SOURCE
-
 $checks{SOURCE} = {
     severity    => $STERN,
     description => '"source FILE" is not portable use ". FILE" instead',
@@ -220,164 +235,231 @@ $checks{SOURCE}{function} = sub {
     check_pattern(
         $file,
         'source\ ',
-        "Severity $checks{SOURCE}{severity} at $file:LINE_NUMBER: " . $checks{SOURCE}{description},
+        "Severity $checks{SOURCE}{severity} at $file:LINE_NUMBER: "
+            . $checks{SOURCE}{description},
         @_,
     );
-};        
+    return;
+};
 
 # DECLARE
-
 $checks{DECLARE} = {
     severity    => $STERN,
-    description => '"declare keyword" is not portable use "typeset keyword" to define local variables '
-        . '(or variables with special attributes)',
+    description => '"declare keyword" is not portable use "typeset keyword" to define'
+        . ' local variables (or variables with special attributes)',
 };
 $checks{DECLARE}{function} = sub {
     my $file = shift;
     check_pattern(
         $file,
         'declare\ ',
-        "Severity $checks{DECLARE}{severity} at $file:LINE_NUMBER: " . $checks{DECLARE}{description},
+        "Severity $checks{DECLARE}{severity} at $file:LINE_NUMBER: "
+            . $checks{DECLARE}{description},
         @_,
     );
+    return;
 };
 
 # HERE_STRING
 $checks{HERE_STRING} = {
     severity    => $STERN,
-    description => 'Avoid here-strings (a special form of the here-document) in portable scripts',
+    description => 'Avoid here-strings (a special form of the here-document)'
+        . ' in portable scripts',
 };
 $checks{HERE_STRING}{function} = sub {
     my $file = shift;
     check_pattern(
         $file,
         '<<<',
-        "Severity $checks{HERE_STRING}{severity} at $file:LINE_NUMBER: " . $checks{HERE_STRING}{description},
+        "Severity $checks{HERE_STRING}{severity} at $file:LINE_NUMBER: "
+            . $checks{HERE_STRING}{description},
         @_,
     );
+    return;
 };
 
 # EXPORT_ASSIGN
 $checks{EXPORT_ASSIGN} = {
     severity    => $STERN,
-    description => 'Though POSIX allows it, many shells don’t want the assignment and the exporting in one command',
+    description => q{Though POSIX allows it, many shells don' want the assignment}
+        . ' and the exporting in one command',
 };
 $checks{EXPORT_ASSIGN}{function} = sub {
     my $file = shift;
     check_pattern(
         $file,
         'export\ .*=',
-        "Severity $checks{EXPORT_ASSIGN}{severity} at $file:LINE_NUMBER: " . $checks{EXPORT_ASSIGN}{description},
+        "Severity $checks{EXPORT_ASSIGN}{severity} at $file:LINE_NUMBER: "
+            . $checks{EXPORT_ASSIGN}{description},
         @_,
     );
+    return;
 };
 
+# ARITH_COMPOUND
+$checks{ARITH_COMPOUND} = {
+    severity    => $STERN,
+    description => q{POSIX does't define an arithmetic compund command, many shells}
+        . q{don't know it. Using the pseudo-command : and the arithmetic expansion}
+            . q{ $(( )) is a kind of workaround here.},
+};
+$checks{ARITH_COMPOUND}{function} = sub  {
+    my $file = shift;
+    check_pattern(
+        $file,
+        '^[^:]*\(\(.*\)\)',
+        "Severity $checks{ARITH_COMPOUND}{severity} at $file:LINE_NUMBER: "
+            . $checks{ARITH_COMPOUND}{description},
+        @_,
+    );
+    return;
+};
+
+# BASHISH_TEST
+$checks{BASHISH_TEST} = {
+    severity    => $STERN,
+    description => q{The Bashish test keyword "[[" is reserved by POSIX, }
+        . q{but not defined. Use the old fashioned way with the test command}
+            . q{ ("test" or "[").},
+};
+$checks{BASHISH_TEST}{function} = sub {
+    my $file = shift;
+    check_pattern(
+        $file,
+        '\[\[\ .*\ \]\]',
+        "Severity $checks{BASHISH_TEST}{severity} at $file:LINE_NUMBER: "
+            . $checks{BASHISH_TEST}{description},
+        @_,
+    );
+    return;
+};
+
+
+#####################
+# obsolete constructs
 #
-#    # arithmetic compunds
-#    sub {
-#        my $file = shift;
-#        check_pattern(
-#            $file,
-#            '^[^:]*\(\(.*\)\)',
-#            "Severity $STERN at $file:LINE_NUMBER: "
-#              . 'POSIX does’t define an arithmetic compund command, many shells don’t know it. Using the pseudo-command : and the arithmetic expansion $(( )) is a kind of workaround here.',
-#            @_,
-#        );
-#    },
-#
-#    # Bashish test keyword
-#    sub {
-#        my $file = shift;
-#        check_pattern(
-#            $file,
-#            '\[\[\ .*\ \]\]',
-#            "Severity $STERN at $file:LINE_NUMBER: "
-#              . 'The Bashish test keyword "[[" is reserved by POSIX®, but not defined. Use the old fashioned way with the test command ("test" or "[").',
-#            @_,
-#        );
-#    },
-#
-#    #####################
-#    # obsolete constructs
-#    #
-#    # http://www.bash-hackers.org/wiki/doku.php?id=scripting:obsolete
-#
-#    # c-shell redirection
-#    sub {
-#        my $file = shift;
-#        check_pattern(
-#            $file,
-#            '(&>)|(>&)',
-#            "Severity $STERN at $file:LINE_NUMBER: "
-#              . 'The &>FILE >&FILE redirection syntax is short for >FILE 2>&1 and is derived from the C-Shell. It’s very old and not part of POSIX',
-#            @_,
-#        );
-#    },
-#
-#    # $[ EXPRESSION ]
-#    sub {
-#        my $file = shift;
-#        check_pattern(
-#            $file,
-#            '\$\[.*\]',
-#            "Severity $STERN at $file:LINE_NUMBER: "
-#              . 'The $[EXPRESSION] syntax is completely replaced by the POSIX-conform arithmetic expansion $((EXPRESSION))'
-#              . @_,
-#        );
-#    },
-#
-#    # ` COMMAND `
-#    sub {
-#        my $file = shift;
-#        check_pattern(
-#            $file,
-#            '\`.*\`',
-#            "Severity $HARSH at $file:LINE_NUMBER: "
-#              . '`COMMANDS` is an older form of the command substitution. The usage of the POSIX-form $(COMMANDS) is preferred.',
-#            @_,
-#        );
-#    },
-#
-#    # function keyword
-#    sub {
-#        my $file = shift;
-#        check_pattern(
-#            $file,
-#            'function\ *' . $NAME_PATTERN . '\ *{',
-#            "Severity $STERN at $file:LINE_NUMBER: "
-#              . 'The "function NAME { ...; }" form of the function definition is not recommended simply use NAME() { ...; } to define a function.',
-#            @_,
-#        );
-#    },
-#
-#    # let EXPRESSION
-#    sub {
-#        my $file = shift;
-#        check_pattern(
-#            $file,
-#            'let\ ',
-#            "Severity $HARSH at $file:LINE_NUMBER: "
-#              . '"let MATH" is the classic form of the arithmetic evaluation command. Bash has an own compound command for that, which should be used if possible: ": $((MATH))."',
-#            @_,
-#        );
-#    },
-#
-#    ############
-#    # Formatting
-#
-#    # lines too long
-#    sub {
-#        my $file    = shift;
-#        my @lines   = read_file($file);
-#        my $counter = 0;
-#        for my $line (@lines) {
-#            $counter++;
-#            if ( length $line > 78 ) {
-#                print "Severity $CRUEL at $file:$counter: "
-#                  . "line is longer than 78 characters, consider splitting it over multiple lines to increase readability.\n";
-#            }
-#        }
-#    },
+# http://www.bash-hackers.org/wiki/doku.php?id=scripting:obsolete
+
+# CSHELL_REDIR
+$checks{CSHELL_REDIR} = {
+    severity    => $STERN,
+    description => q{The &>FILE >&FILE redirection syntax is short for >FILE 2>&1}
+        . q{ and is derived from the C-Shell. It's very old and not part of POSIX},
+};
+$checks{CSHELL_REDIR}{function} = sub {
+    my $file = shift;
+    check_pattern(
+        $file,
+        '(&>)|(>&)',
+        "Severity $checks{CSHELL_REDIR}{severity} at $file:LINE_NUMBER: "
+            . $checks{CSHELL_REDIR}{description},
+        @_,
+    );
+    return;
+};
+
+# DOLLAR_BRACKET
+$checks{DOLLAR_BRACKET} = {
+    severity    => $STERN,
+    description => q{The $[EXPRESSION] syntax is completely replaced by the }
+        . q{POSIX-conform arithmetic expansion $((EXPRESSION))},
+};
+$checks{DOLLAR_BRACKET}{function} = sub {
+    my $file = shift;
+    check_pattern(
+        $file,
+        '\$\[.*\]',
+        "Severity $checks{DOLLAR_BRACKET}{severity} at $file:LINE_NUMBER: "
+            . $checks{DOLLAR_BRACKET}{description},
+        @_,
+    );
+    return;
+};
+
+# BACKTICKS
+$checks{BACKTICKS} = {
+    severity    => $HARSH,
+    description => q{`COMMANDS` is an older form of the command substitution. }
+        . q{The usage of the POSIX-form $(COMMANDS) is preferred.} ,
+};
+$checks{BACKTICKS}{function} = sub {
+    my $file = shift;
+    check_pattern(
+        $file,
+        '\`.*\`',
+        "Severity $checks{BACKTICKS}{severity} at $file:LINE_NUMBER: "
+            . $checks{BACKTICKS}{description},
+        @_,
+    );
+    return;
+};
+
+# FUNCTION
+$checks{FUNCTION} = {
+    severity    => $STERN,
+    description => q{The "function NAME { ...; }" form of the function definition}
+        . q{ is not recommended simply use NAME() { ...; } to define a function.},
+};
+$checks{FUNCTION}{function} = sub {
+    my $file = shift;
+    check_pattern(
+        $file,
+        'function\ *' . $NAME_PATTERN . '\ *{',
+        "Severity $checks{FUNCTION}{severity} at $file:LINE_NUMBER: "
+            . $checks{FUNCTION}{description},
+        @_,
+    );
+    return;
+};
+
+# LET
+$checks{LET} = {
+    severity    => $HARSH,
+    description => q{"let MATH" is the classic form of the arithmetic evaluation }
+        . q{command. Bash has an own compound command for that, which should be used}
+            . q{ if possible: ": $((MATH))."} ,
+};
+$checks{LET}{function} = sub {
+    my $file = shift;
+    check_pattern(
+        $file,
+        'let\ ',
+        "Severity $checks{LET}{severity} at $file:LINE_NUMBER: "
+            . $checks{LET}{description},,
+        @_,
+    );
+    return;
+};
+
+
+############
+# Formatting
+
+# LONG_LINES
+$checks{LONG_LINES} = {
+    severity    => $CRUEL,
+    description => 'line is longer than 78 characters, consider splitting it over'
+        . " multiple lines to increase readability.\n",
+};
+$checks{LONG_LINES}{function} = sub {
+    my $file    = shift;
+    my @lines   = read_file($file);
+    my $counter = 0;
+    for my $line (@lines) {
+        $counter++;
+        if ( length $line > 78 ) {
+            print "Severity $checks{LONG_LINES}{severity} at $file:$counter: "
+                . $checks{LONG_LINES}{description};
+        }
+    }
+    return;
+};
+
+##############################################################################
+
+colorize_checks();
+
+##############################################################################
 
 for my $file (@FILES) {
     perform_checks($file);
