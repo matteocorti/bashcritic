@@ -22,7 +22,6 @@ use English qw(-no_match_vars);
 use Getopt::Long;
 use Pod::Usage qw(pod2usage);
 use List::Util qw(first);
-use Term::ANSIColor;
 
 ##############################################################################
 # Configuration
@@ -40,11 +39,12 @@ Getopt::Long::Configure( 'bundling', 'ignorecase', );
 #   - description : a short description
 my %checks;
 
+my $color         = 1;
 my $getopt_result;
 my $help;
 my $list_format;
-my $severity  = 5;
-my $verbosity = 0;
+my $severity     = 5;
+my $verbosity    = 0;
 
 # constants
 
@@ -55,7 +55,8 @@ my $CRUEL  = 2;
 my $BRUTAL = 1;
 
 # according to sysexits on FreeBSD (should check if there is a CPAN module with exit codes
-my $EXIT_USAGE = 64;
+my $EXIT_USAGE       = 64;
+my $EXIT_UNAVAILABLE = 69;
 
 my $NAME_PATTERN = '[A-Za-z0-9_]+';
 
@@ -467,7 +468,10 @@ initialize_checks();
 ############################
 # Parse command line options
 
-Getopt::Long::Configure( 'bundling', 'no_ignore_case' );
+Getopt::Long::Configure(
+    'bundling',
+    'no_ignore_case'
+);
 
 $getopt_result = GetOptions(
     '1|brutal'   => sub { $severity = 1; },
@@ -476,6 +480,7 @@ $getopt_result = GetOptions(
     '4|stern'    => sub { $severity = 4; },
     '5|gentle'   => sub { $severity = 5; },
     'list|l:s'   => \$list_format,            # optional string
+    'color!'     => \$color,                  # can be negated
     'severity'   => \$severity,
     'help|h|?'   => \$help,
     'verbose|v+' => \$verbosity,
@@ -518,9 +523,20 @@ else {
     @FILES = @ARGV;
 }
 
-colorize_checks();
+# check if Term::ANSIColors is available
 
-##############################################################################
+eval { require Term::ANSIColor; };
+if ($@ && $color) {
+    print "warning 'Term::ANSIColor' is not available: cannot colorize output\n";
+    $color = 0;
+}
+
+if ($color) {
+    require Term::ANSIColor;
+    colorize_checks();
+}
+
+# check the files
 
 for my $file (@FILES) {
     perform_checks($file);
