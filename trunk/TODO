@@ -4,7 +4,7 @@ To do
 Programming
 ===========
 
---color/--no-color
+* detect the type of the shell by the shebang
 
 * sort the checks hash by severity? description? in the listing
 

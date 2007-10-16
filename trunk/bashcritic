@@ -14,7 +14,7 @@ use strict;
 use warnings;
 use Carp;
 
-use version; our $VERSION = '0.1.0';
+use version; our $VERSION = '0.2.0';
 
 use Data::Dumper;
 use File::Slurp;
@@ -35,19 +35,28 @@ Getopt::Long::Configure( 'bundling', 'ignorecase', );
 # - name        : name of the check
 # - *           : anonymous hash with
 #   - severity    : the severity level of the check
+#   - shells      : list of shells where this applies
 #   - function    : the subrouting implementing the test
 #   - description : a short description
 my %checks;
 
+# command line options
+my $bourne        = 0;
 my $color         = 1;
 my $getopt_result;
 my $help;
 my $list_format;
-my $severity     = 5;
-my $verbosity    = 0;
+my $posix         = 1;
+my $severity      = 5;
+my $verbosity     = 0;
+
+my @shells = (
+    'POSIX'
+);
 
 # constants
 
+# severity levels
 my $GENTLE = 5;
 my $STERN  = 4;
 my $HARSH  = 3;
@@ -135,16 +144,27 @@ sub list_checks {
 
     if ($format eq 'trac') {
         for my $name (keys %checks) {
+
+            # || description || severity || shells ||
+            
             print '||'
                 . ${$checks{$name}}{description}
                 . '||'
-                . "${$checks{$name}}{severity}||\n";
+                . "${$checks{$name}}{severity}"
+                . '||'
+                . "$checks{$name}{shells}||\n";
+            
         }
     }
     else {
         for my $name (keys %checks) {
+
+            # description (severity level) [ shells ]
+            
             print ${$checks{$name}}{description}
-                . " (severity ${$checks{$name}}{severity})\n";
+                . " (severity ${$checks{$name}}{severity}) ["
+                . $checks{$name}{shells}
+                . "]\n";
         }
     }
     
@@ -228,6 +248,7 @@ sub initialize_checks() {
     # SOURCE
     $checks{SOURCE} = {
         severity    => $STERN,
+        shells      => ( 'POSIX' ),
         description => '"source FILE" is not portable use ". FILE" instead.',
     };
     $checks{SOURCE}{function} = sub {
@@ -245,6 +266,7 @@ sub initialize_checks() {
     # DECLARE
     $checks{DECLARE} = {
         severity    => $STERN,
+        shells      => ( 'POSIX' ),
         description => '"declare keyword" is not portable use subshells (...) or $(...) to define'
             . ' local variables (or variables with special attributes).',
     };
@@ -263,6 +285,7 @@ sub initialize_checks() {
     # DECLARE
     $checks{DECLARE} = {
         severity    => $STERN,
+        shells      => ( 'POSIX' ),
         description => '"typeset keyword" is not portable use subshells (...) or $(...) to define'
             . ' local variables (or variables with special attributes).',
     };
@@ -281,6 +304,7 @@ sub initialize_checks() {
     # HERE_STRING
     $checks{HERE_STRING} = {
         severity    => $STERN,
+        shells      => ( 'POSIX' ),
         description => 'Avoid here-strings (a special form of the here-document)'
             . ' in portable scripts.',
     };
@@ -299,7 +323,8 @@ sub initialize_checks() {
     # EXPORT_ASSIGN
     $checks{EXPORT_ASSIGN} = {
         severity    => $STERN,
-        description => q{Though POSIX allows it, many shells don' want the assignment}
+        shells      => ( 'BOURNE' ),
+        description => q{Though POSIX allows it, bourne shell don't want the assignment}
             . ' and the exporting in one command.',
     };
     $checks{EXPORT_ASSIGN}{function} = sub {
@@ -317,6 +342,7 @@ sub initialize_checks() {
     # ARITH_COMPOUND
     $checks{ARITH_COMPOUND} = {
         severity    => $STERN,
+        shells      => ( 'POSIX' ),
         description => q{POSIX does't define an arithmetic compund command, many shells}
             . q{don't know it. Using the pseudo-command : and the arithmetic expansion}
                 . q{ $(( )) is a kind of workaround here.},
@@ -336,6 +362,7 @@ sub initialize_checks() {
     # BASHISH_TEST
     $checks{BASHISH_TEST} = {
         severity    => $STERN,
+        shells      => ( 'POSIX' ),
         description => q{The Bashish test keyword "[[" is reserved by POSIX, }
             . q{but not defined. Use the old fashioned way with the test command}
                 . q{ ("test" or "[").},
@@ -361,6 +388,7 @@ sub initialize_checks() {
     # CSHELL_REDIR
     $checks{CSHELL_REDIR} = {
         severity    => $STERN,
+        shells      => ( 'POSIX' ),
         description => q{The &>FILE >&FILE redirection syntax is short for >FILE 2>&1}
             . q{ and is derived from the C-Shell. It's very old and not part of POSIX.},
     };
@@ -379,6 +407,7 @@ sub initialize_checks() {
     # DOLLAR_BRACKET
     $checks{DOLLAR_BRACKET} = {
         severity    => $STERN,
+        shells      => ( 'POSIX' ),
         description => q{The $[EXPRESSION] syntax is completely replaced by the }
             . q{POSIX-conform arithmetic expansion $((EXPRESSION)).},
     };
@@ -397,6 +426,7 @@ sub initialize_checks() {
     # BACKTICKS
     $checks{BACKTICKS} = {
         severity    => $HARSH,
+        shells      => ( 'POSIX' ),
         description => q{`COMMANDS` is an older form of the command substitution. }
             . q{The usage of the POSIX-form $(COMMANDS) is preferred.} ,
     };
@@ -415,6 +445,7 @@ sub initialize_checks() {
     # FUNCTION
     $checks{FUNCTION} = {
         severity    => $STERN,
+        shells      => ( 'POSIX' ),
         description => q{The "function NAME { ...; }" form of the function definition}
             . q{ is not recommended simply use NAME() { ...; } to define a function.},
     };
@@ -433,6 +464,7 @@ sub initialize_checks() {
     # LET
     $checks{LET} = {
         severity    => $HARSH,
+        shells      => ( 'POSIX' ),
         description => q{"let MATH" is the classic form of the arithmetic evaluation }
             . q{command. Bash has an own compound command for that, which should be used}
                 . q{ if possible: ": $((MATH))".} ,
@@ -456,6 +488,7 @@ sub initialize_checks() {
     # LONG_LINES
     $checks{LONG_LINES} = {
         severity    => $CRUEL,
+        shells      => ( 'POSIX' ),
         description => 'Line is longer than 78 characters, consider splitting it over'
             . " multiple lines to increase readability.",
     };
@@ -492,17 +525,27 @@ Getopt::Long::Configure(
 );
 
 $getopt_result = GetOptions(
+
+    # severity levels
     '1|brutal'      => sub { $severity = 1; },
     '2|cruel'       => sub { $severity = 2; },
     '3|harsh'       => sub { $severity = 3; },
     '4|stern'       => sub { $severity = 4; },
     '5|gentle'      => sub { $severity = 5; },
-    'list|l:s'      => \$list_format,            # optional string
-    'color|colour!' => \$color,                  # can be negated
     'severity'      => \$severity,
+
+    'list|l:s'      => \$list_format,            # optional string
+    
+    'color|colour!' => \$color,                  # can be negated
+
+    # shells
+    'bourne!'       => \$bourne,
+    'posix!'        => \$posix,
+    
     'help|h|?'      => \$help,
     'verbose|v+'    => \$verbosity,
-    'version|V'     => sub { print "bashcritic version $VERSION\n"; exit; },
+    'version|V'     => sub { print "bashcritic version $VERSION\n"; exit 0; },
+    
 ) or pod2usage();
 
 if (defined $list_format) {
@@ -541,6 +584,9 @@ else {
     @FILES = @ARGV;
 }
 
+##############################################################################
+# Sanity checks
+
 # check if Term::ANSIColors is available
 
 eval { require Term::ANSIColor; };
@@ -554,6 +600,12 @@ if ($color) {
     colorize_checks();
 }
 
+################
+# process shells
+if ($posix)  { push @shells, 'POSIX';  }
+if ($bourne) { push @shells, 'BOURNE'; }
+
+##############################################################################
 # check the files
 
 for my $file (@FILES) {
@@ -573,11 +625,15 @@ C<bashcritic> - critiques shell scripts
 =head1 SYNOPSIS
 
   bashcritic [-12345 | --brutal | --cruel | --harsh | --stern | --gentle]
+             [--posix | --bourne]
              [--severity number | name]
              [--list [format]]
              [-verbose ]
              {FILE | STDIN}
 
+  options:
+
+  [ TODO ]
 
   possible listing formats
   - trac    for the trac twiki
@@ -595,6 +651,8 @@ Version 1.0.0
 none
 
 =head1 OPTIONS
+
+TODO
 
 =head1 USAGE EXAMPLES
 
