@@ -1,3 +1,7 @@
+2007-10-16  Matteo Corti  <matteo.corti@id.ethz.ch>
+
+	* bashcritic (initialize_checks): corrected the PATTERN to match >& and &>
+
 2007-10-12  Matteo Corti  <matteo.corti@id.ethz.ch>
 
 	* bashcritic: added British spelling for --colour	
