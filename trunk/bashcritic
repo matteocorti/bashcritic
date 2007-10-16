@@ -350,7 +350,7 @@ sub initialize_checks() {
         my $file = shift;
         check_pattern(
             $file,
-            '(&>)|(>&)',
+            '[^0-9]((&>)|(>&))',
             "Severity $checks{CSHELL_REDIR}{severity} at $file:LINE_NUMBER: "
                 . $checks{CSHELL_REDIR}{description},
             @_,
