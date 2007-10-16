@@ -1,6 +1,7 @@
 2007-10-16  Matteo Corti  <matteo.corti@id.ethz.ch>
 
 	* bashcritic (initialize_checks): corrected the PATTERN to match >& and &>
+	* bashcritic (initialize_checks): typeset is not standard -> use subshells, new rule for typeset
 
 2007-10-12  Matteo Corti  <matteo.corti@id.ethz.ch>
 

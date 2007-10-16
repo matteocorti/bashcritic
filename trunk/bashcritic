@@ -245,7 +245,7 @@ sub initialize_checks() {
     # DECLARE
     $checks{DECLARE} = {
         severity    => $STERN,
-        description => '"declare keyword" is not portable use "typeset keyword" to define'
+        description => '"declare keyword" is not portable use subshells (...) or $(...) to define'
             . ' local variables (or variables with special attributes).',
     };
     $checks{DECLARE}{function} = sub {
@@ -253,6 +253,24 @@ sub initialize_checks() {
         check_pattern(
             $file,
             'declare\ ',
+            "Severity $checks{DECLARE}{severity} at $file:LINE_NUMBER: "
+                . $checks{DECLARE}{description},
+            @_,
+        );
+        return;
+    };
+
+    # DECLARE
+    $checks{DECLARE} = {
+        severity    => $STERN,
+        description => '"typeset keyword" is not portable use subshells (...) or $(...) to define'
+            . ' local variables (or variables with special attributes).',
+    };
+    $checks{DECLARE}{function} = sub {
+        my $file = shift;
+        check_pattern(
+            $file,
+            'typeset\ ',
             "Severity $checks{DECLARE}{severity} at $file:LINE_NUMBER: "
                 . $checks{DECLARE}{description},
             @_,
