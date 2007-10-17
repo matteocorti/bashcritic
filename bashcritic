@@ -152,26 +152,35 @@ sub list_checks {
         );
     }
 
-    if ( $format eq 'trac' ) {
-        for my $name ( keys %checks ) {
+    for my $name ( keys %checks ) {
+
+        my $shells;
+        for my $s (@{$checks{$name} {shells}}) {
+            if (defined $shells) {
+                $shells = "$shells, $s";
+            }
+            else {
+                $shells = $s;
+            }
+        }
+            
+        if ( $format eq 'trac' ) {
 
             # || description || severity || shells ||
 
             print q{||}
               . ${ $checks{$name} }{description} . q{||}
               . "${$checks{$name}}{severity}" . q{||}
-              . "$checks{$name}{shells}||\n";
+              .  $shells . "||\n";
 
         }
-    }
-    else {
-        for my $name ( keys %checks ) {
+        else {
 
             # description (severity level) [ shells ]
 
             print ${ $checks{$name} }{description}
               . " (severity ${$checks{$name}}{severity}) ["
-              . $checks{$name}{shells} . "]\n";
+              . $shells . "]\n";
         }
     }
 
@@ -250,7 +259,7 @@ sub initialize_checks {
     # SOURCE
     $checks{SOURCE} = {
         severity    => $STERN,
-        shells      => qw(POSIX),
+        shells      => [ 'POSIX' ],
         description => '"source FILE" is not portable use ". FILE" instead.',
     };
     $checks{SOURCE}{function} = sub {
@@ -268,7 +277,7 @@ sub initialize_checks {
     # DECLARE
     $checks{DECLARE} = {
         severity => $STERN,
-        shells   => qw(POSIX),
+        shells   => [ 'POSIX' ],
         description =>
             q{"declare keyword" is not portable use subshells (...) or $(...) to define}
           . q{ local variables (or variables with special attributes).},
@@ -288,7 +297,7 @@ sub initialize_checks {
     # TYPESET
     $checks{TYPESET} = {
         severity => $STERN,
-        shells   => qw(POSIX),
+        shells   => [ 'POSIX' ],
         description =>
           '"typeset keyword" is not portable use subshells (...) or $(...) to define'
           . ' local variables (or variables with special attributes).',
@@ -308,7 +317,7 @@ sub initialize_checks {
     # HERE_STRING
     $checks{HERE_STRING} = {
         severity => $STERN,
-        shells   => @all_shells,
+        shells   => \@all_shells,
         description =>
           'Avoid here-strings (a special form of the here-document)'
           . ' in portable scripts.',
@@ -328,7 +337,7 @@ sub initialize_checks {
     # EXPORT_ASSIGN
     $checks{EXPORT_ASSIGN} = {
         severity => $STERN,
-        shells   => qw(BOURNE),
+        shells   => [ 'BOURNE' ],
         description =>
           q{Though POSIX allows it, bourne shell don't want the assignment}
           . ' and the exporting in one command.',
@@ -348,7 +357,7 @@ sub initialize_checks {
     # EXPORT_NOT_QUOTED
     $checks{EXPORT_NOT_QUOTED} = {
         severity    => $STERN,
-        shells      => @all_shells,
+        shells      => \@all_shells,
         description => q{Export behaves differently depending on the shell }
           . q{(e.g., 'a="A B"; export b=$a' exports b as "A B" on}
           . q{ bash AT&T ksh making them non-POSIX compliant},
@@ -368,7 +377,7 @@ sub initialize_checks {
     # BASHISH_TEST
     $checks{BASHISH_TEST} = {
         severity    => $STERN,
-        shells      => qw(POSIX),
+        shells      => [ 'POSIX' ],
         description => q{The "[[" test keyword is reserved by POSIX, }
           . q{but not defined. Use "test" or "[" instead},
     };
@@ -387,7 +396,7 @@ sub initialize_checks {
     # REDIR
     $checks{REDIR} = {
         severity => $STERN,
-        shells   => qw(POSIX),
+        shells   => [ 'POSIX' ],
         description =>
           q{The &>FILE redirection syntax is not part of POSIX, use >FILE 2>&1 instead},
     };
@@ -406,7 +415,7 @@ sub initialize_checks {
     # DOLLAR_BRACKET
     $checks{DOLLAR_BRACKET} = {
         severity => $STERN,
-        shells   => qw(POSIX),
+        shells   => [ 'POSIX' ],
         description =>
           q{The $[EXPRESSION] syntax is completely replaced by the }
           . q{POSIX-conform arithmetic expansion $((EXPRESSION)).},
@@ -426,7 +435,7 @@ sub initialize_checks {
     # BACKTICKS
     $checks{BACKTICKS} = {
         severity    => $GENTLE,
-        shells      => qw(BOURNE),
+        shells      => [ 'BOURNE' ],
         description => q{Bourne shell does not support the POSIX-form}
           . q{ $(COMMANDS), use `COMMANDS` instead.},
     };
@@ -445,7 +454,7 @@ sub initialize_checks {
     # FUNCTION
     $checks{FUNCTION} = {
         severity    => $STERN,
-        shells      => qw(POSIX),
+        shells      => [ 'POSIX' ],
         description => q{The "function NAME" form of the function definition is}
           . q{ ksh-specific simply use "NAME()" to define a function.},
     };
@@ -464,7 +473,7 @@ sub initialize_checks {
     # LET
     $checks{LET} = {
         severity => $HARSH,
-        shells   => qw(POSIX),
+        shells   => [ 'POSIX' ],
         description =>
           q{"let" is ksh-specific, use the $((...)) POSIX form instead.}
     };
@@ -490,7 +499,7 @@ sub initialize_checks {
  # is formatted to fit in 80 columns -> let's skipt to 80 (VT-100)
     $checks{LONG_LINES} = {
         severity => $CRUEL,
-        shells   => qw(POSIX),
+        shells   => [ 'POSIX' ],
         description =>
           q{Line is longer than 80 characters, consider splitting it over}
           . q{ multiple lines to increase readability.},
