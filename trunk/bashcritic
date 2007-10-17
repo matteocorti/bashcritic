@@ -50,9 +50,7 @@ my $posix         = 1;
 my $severity      = 5;
 my $verbosity     = 0;
 
-my @shells = (
-    'POSIX'
-);
+my @shells;
 
 # constants
 
@@ -111,11 +109,19 @@ sub perform_checks {
     my $file = shift;
     verbose "checking $file\n";
     for my $name (keys %checks) {
-        if (${$checks{$name}}{severity} >= $severity) {        
-            verbose '> checking rule: '
-                . ${$checks{$name}}{description}
+        if ( ${$checks{$name}}{severity} >= $severity ) {
+
+            my $perform = 0;
+            for my $shell (@{$checks{$name}}{shells}) {
+                $perform ||= grep { /$shell/ } @shells;
+            }
+
+            if ($perform) {
+                verbose '> checking rule: '
+                    . ${$checks{$name}}{description}
                     . "\n", 1;
-            &{${$checks{$name}}{function}}( $file, read_file($file) );
+                &{${$checks{$name}}{function}}( $file, read_file($file) );
+            }
         }
     }
     return;

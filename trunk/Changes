@@ -1,3 +1,7 @@
+2007-10-17  Matteo Corti  <matteo.corti@id.ethz.ch>
+
+	* bashcritic (initialize_checks): a given rule is checked only for a set of shells
+
 2007-10-16  Matteo Corti  <matteo.corti@id.ethz.ch>
 
 	* bashcritic (initialize_checks): corrected the PATTERN to match >& and &>
