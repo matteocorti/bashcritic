@@ -10,12 +10,13 @@ all_from 'bashcritic';
 ##############################################################################
 # Specific dependencies
 
-requires 'Data::Dumper' => 0;
-requires 'File::Slurp'  => 0;
-requires 'English'      => 0;
-requires 'Getopt::Long' => 0;
-requires 'Pod::Usage'   => 0;
-requires 'List::Util'   => 0;
+requires 'Data::Dumper'    => 0;
+requires 'File::Slurp'     => 0;
+requires 'English'         => 0;
+requires 'Getopt::Long'    => 0;
+requires 'Pod::Usage'      => 0;
+requires 'List::Util'      => 0;
+requires 'List::MoreUtils' => 0;
 
 install_script  'bashcritic';
 

@@ -22,6 +22,7 @@ use English qw(-no_match_vars);
 use Getopt::Long;
 use Pod::Usage qw(pod2usage);
 use List::Util qw(first);
+use List::MoreUtils qw(any);
 
 ##############################################################################
 # Configuration
@@ -41,14 +42,16 @@ Getopt::Long::Configure( 'bundling', 'ignorecase', );
 my %checks;
 
 # command line options
-my $bourne        = 0;
-my $color         = 1;
+my $bourne = 0;
+my $color  = 1;
 my $getopt_result;
 my $help;
 my $list_format;
-my $posix         = 1;
-my $severity      = 5;
-my $verbosity     = 0;
+my $posix     = 1;
+my $severity  = 5;
+my $verbosity = 0;
+
+my @all_shells = qw( BASH BOURNE CSH KSH POSIX TCSH ZSH );
 
 my @shells;
 
@@ -108,19 +111,19 @@ sub verbose {
 sub perform_checks {
     my $file = shift;
     verbose "checking $file\n";
-    for my $name (keys %checks) {
-        if ( ${$checks{$name}}{severity} >= $severity ) {
+    for my $name ( keys %checks ) {
+        if ( ${ $checks{$name} }{severity} >= $severity ) {
 
             my $perform = 0;
-            for my $shell (@{$checks{$name}}{shells}) {
-                $perform ||= grep { /$shell/ } @shells;
+            for my $shell ( @{ $checks{$name} }{shells} ) {
+                $perform ||= any { /$shell/mx } @shells;
             }
 
             if ($perform) {
                 verbose '> checking rule: '
-                    . ${$checks{$name}}{description}
-                    . "\n", 1;
-                &{${$checks{$name}}{function}}( $file, read_file($file) );
+                  . ${ $checks{$name} }{description}
+                  . "\n", 1;
+                &{ ${ $checks{$name} }{function} }( $file, read_file($file) );
             }
         }
     }
@@ -137,43 +140,41 @@ sub perform_checks {
 # Comments  : n/a
 # See also  : n/a
 sub list_checks {
-    
+
     my $format = shift;
-    
-    if (defined $format &&
-            !grep { /$format/} ( 'trac')) {
+
+    if ( defined $format
+        && ! any { /$format/mx } ('trac') )
+    {
         pod2usage(
             -message => "unknown list formatting '$format'",
             -exitval => $EXIT_USAGE,
         );
     }
 
-    if ($format eq 'trac') {
-        for my $name (keys %checks) {
+    if ( $format eq 'trac' ) {
+        for my $name ( keys %checks ) {
 
             # || description || severity || shells ||
-            
-            print '||'
-                . ${$checks{$name}}{description}
-                . '||'
-                . "${$checks{$name}}{severity}"
-                . '||'
-                . "$checks{$name}{shells}||\n";
-            
+
+            print q{||}
+              . ${ $checks{$name} }{description} . q{||}
+              . "${$checks{$name}}{severity}" . q{||}
+              . "$checks{$name}{shells}||\n";
+
         }
     }
     else {
-        for my $name (keys %checks) {
+        for my $name ( keys %checks ) {
 
             # description (severity level) [ shells ]
-            
-            print ${$checks{$name}}{description}
-                . " (severity ${$checks{$name}}{severity}) ["
-                . $checks{$name}{shells}
-                . "]\n";
+
+            print ${ $checks{$name} }{description}
+              . " (severity ${$checks{$name}}{severity}) ["
+              . $checks{$name}{shells} . "]\n";
         }
     }
-    
+
     return;
 }
 
@@ -186,14 +187,15 @@ sub list_checks {
 # Comments  : n/a
 # See also  : n/a
 sub colorize_checks {
-    for my $key (keys %checks) {
-        if ($checks{$key}{severity} == $GENTLE) {
+    for my $key ( keys %checks ) {
+        if ( $checks{$key}{severity} == $GENTLE ) {
             $checks{$key}{description} =
-                Term::ANSIColor::colored( $checks{$key}{description}, 'bold red' );
+              Term::ANSIColor::colored( $checks{$key}{description},
+                'bold red' );
         }
-        if ($checks{$key}{severity} == $STERN) {
+        if ( $checks{$key}{severity} == $STERN ) {
             $checks{$key}{description} =
-                Term::ANSIColor::colored( $checks{$key}{description}, 'yellow' );
+              Term::ANSIColor::colored( $checks{$key}{description}, 'yellow' );
         }
     }
     return;
@@ -214,7 +216,7 @@ sub colorize_checks {
 # See also  : n/a
 sub check_pattern {
 
-    my ($file, $pattern, $message, @lines) = @_;
+    my ( $file, $pattern, $message, @lines ) = @_;
 
     my $counter = 0;
 
@@ -239,22 +241,16 @@ sub check_pattern {
 # Throws    : n/a
 # Comments  : n/a
 # See also  : n/a
-sub initialize_checks() {
+sub initialize_checks {
 
     # fill in names severities and descriptions first (functions
     # will be inserted later so that they can use these fields in the
     # definition
 
-    ####################
-    # portability checks
-    #
-    # checks from rules described by
-    # http://www.bash-hackers.org/wiki/doku.php?id=scripting:nonportable
-    
     # SOURCE
     $checks{SOURCE} = {
         severity    => $STERN,
-        shells      => ( 'POSIX' ),
+        shells      => qw(POSIX),
         description => '"source FILE" is not portable use ". FILE" instead.',
     };
     $checks{SOURCE}{function} = sub {
@@ -263,7 +259,7 @@ sub initialize_checks() {
             $file,
             'source\ ',
             "Severity $checks{SOURCE}{severity} at $file:LINE_NUMBER: "
-                . $checks{SOURCE}{description},
+              . $checks{SOURCE}{description},
             @_,
         );
         return;
@@ -271,10 +267,11 @@ sub initialize_checks() {
 
     # DECLARE
     $checks{DECLARE} = {
-        severity    => $STERN,
-        shells      => ( 'POSIX' ),
-        description => '"declare keyword" is not portable use subshells (...) or $(...) to define'
-            . ' local variables (or variables with special attributes).',
+        severity => $STERN,
+        shells   => qw(POSIX),
+        description =>
+            q{"declare keyword" is not portable use subshells (...) or $(...) to define}
+          . q{ local variables (or variables with special attributes).},
     };
     $checks{DECLARE}{function} = sub {
         my $file = shift;
@@ -282,26 +279,27 @@ sub initialize_checks() {
             $file,
             'declare\ ',
             "Severity $checks{DECLARE}{severity} at $file:LINE_NUMBER: "
-                . $checks{DECLARE}{description},
+              . $checks{DECLARE}{description},
             @_,
         );
         return;
     };
 
-    # DECLARE
-    $checks{DECLARE} = {
-        severity    => $STERN,
-        shells      => ( 'POSIX' ),
-        description => '"typeset keyword" is not portable use subshells (...) or $(...) to define'
-            . ' local variables (or variables with special attributes).',
+    # TYPESET
+    $checks{TYPESET} = {
+        severity => $STERN,
+        shells   => qw(POSIX),
+        description =>
+          '"typeset keyword" is not portable use subshells (...) or $(...) to define'
+          . ' local variables (or variables with special attributes).',
     };
-    $checks{DECLARE}{function} = sub {
+    $checks{TYPESET}{function} = sub {
         my $file = shift;
         check_pattern(
             $file,
             'typeset\ ',
-            "Severity $checks{DECLARE}{severity} at $file:LINE_NUMBER: "
-                . $checks{DECLARE}{description},
+            "Severity $checks{TYPESET}{severity} at $file:LINE_NUMBER: "
+              . $checks{TYPESET}{description},
             @_,
         );
         return;
@@ -309,10 +307,11 @@ sub initialize_checks() {
 
     # HERE_STRING
     $checks{HERE_STRING} = {
-        severity    => $STERN,
-        shells      => ( 'POSIX' ),
-        description => 'Avoid here-strings (a special form of the here-document)'
-            . ' in portable scripts.',
+        severity => $STERN,
+        shells   => @all_shells,
+        description =>
+          'Avoid here-strings (a special form of the here-document)'
+          . ' in portable scripts.',
     };
     $checks{HERE_STRING}{function} = sub {
         my $file = shift;
@@ -320,7 +319,7 @@ sub initialize_checks() {
             $file,
             '<<<',
             "Severity $checks{HERE_STRING}{severity} at $file:LINE_NUMBER: "
-                . $checks{HERE_STRING}{description},
+              . $checks{HERE_STRING}{description},
             @_,
         );
         return;
@@ -328,10 +327,11 @@ sub initialize_checks() {
 
     # EXPORT_ASSIGN
     $checks{EXPORT_ASSIGN} = {
-        severity    => $STERN,
-        shells      => ( 'BOURNE' ),
-        description => q{Though POSIX allows it, bourne shell don't want the assignment}
-            . ' and the exporting in one command.',
+        severity => $STERN,
+        shells   => qw(BOURNE),
+        description =>
+          q{Though POSIX allows it, bourne shell don't want the assignment}
+          . ' and the exporting in one command.',
     };
     $checks{EXPORT_ASSIGN}{function} = sub {
         my $file = shift;
@@ -339,27 +339,27 @@ sub initialize_checks() {
             $file,
             'export\ .*=',
             "Severity $checks{EXPORT_ASSIGN}{severity} at $file:LINE_NUMBER: "
-                . $checks{EXPORT_ASSIGN}{description},
+              . $checks{EXPORT_ASSIGN}{description},
             @_,
         );
         return;
     };
 
-    # ARITH_COMPOUND
-    $checks{ARITH_COMPOUND} = {
+    # EXPORT_NOT_QUOTED
+    $checks{EXPORT_NOT_QUOTED} = {
         severity    => $STERN,
-        shells      => ( 'POSIX' ),
-        description => q{POSIX does't define an arithmetic compund command, many shells}
-            . q{don't know it. Using the pseudo-command : and the arithmetic expansion}
-                . q{ $(( )) is a kind of workaround here.},
+        shells      => @all_shells,
+        description => q{Export behaves differently depending on the shell }
+          . q{(e.g., 'a="A B"; export b=$a' exports b as "A B" on}
+          . q{ bash AT&T ksh making them non-POSIX compliant},
     };
-    $checks{ARITH_COMPOUND}{function} = sub  {
+    $checks{EXPORT_ASSIGN}{function} = sub {
         my $file = shift;
         check_pattern(
             $file,
-            '^[^:]*\(\(.*\)\)',
-            "Severity $checks{ARITH_COMPOUND}{severity} at $file:LINE_NUMBER: "
-                . $checks{ARITH_COMPOUND}{description},
+            'export\ .*=\ *[^"]',
+            "Severity $checks{EXPORT_ASSIGN}{severity} at $file:LINE_NUMBER: "
+              . $checks{EXPORT_ASSIGN}{description},
             @_,
         );
         return;
@@ -368,10 +368,9 @@ sub initialize_checks() {
     # BASHISH_TEST
     $checks{BASHISH_TEST} = {
         severity    => $STERN,
-        shells      => ( 'POSIX' ),
-        description => q{The Bashish test keyword "[[" is reserved by POSIX, }
-            . q{but not defined. Use the old fashioned way with the test command}
-                . q{ ("test" or "[").},
+        shells      => qw(POSIX),
+        description => q{The "[[" test keyword is reserved by POSIX, }
+          . q{but not defined. Use "test" or "[" instead},
     };
     $checks{BASHISH_TEST}{function} = sub {
         my $file = shift;
@@ -379,32 +378,26 @@ sub initialize_checks() {
             $file,
             '\[\[\ .*\ \]\]',
             "Severity $checks{BASHISH_TEST}{severity} at $file:LINE_NUMBER: "
-                . $checks{BASHISH_TEST}{description},
+              . $checks{BASHISH_TEST}{description},
             @_,
         );
         return;
     };
 
-
-    #####################
-    # obsolete constructs
-    #
-    # http://www.bash-hackers.org/wiki/doku.php?id=scripting:obsolete
-
-    # CSHELL_REDIR
-    $checks{CSHELL_REDIR} = {
-        severity    => $STERN,
-        shells      => ( 'POSIX' ),
-        description => q{The &>FILE >&FILE redirection syntax is short for >FILE 2>&1}
-            . q{ and is derived from the C-Shell. It's very old and not part of POSIX.},
+    # REDIR
+    $checks{REDIR} = {
+        severity => $STERN,
+        shells   => qw(POSIX),
+        description =>
+          q{The &>FILE redirection syntax is not part of POSIX, use >FILE 2>&1 instead},
     };
-    $checks{CSHELL_REDIR}{function} = sub {
+    $checks{REDIR}{function} = sub {
         my $file = shift;
         check_pattern(
             $file,
-            '[^0-9]((&>)|(>&))',
-            "Severity $checks{CSHELL_REDIR}{severity} at $file:LINE_NUMBER: "
-                . $checks{CSHELL_REDIR}{description},
+            '&>',
+            "Severity $checks{REDIR}{severity} at $file:LINE_NUMBER: "
+              . $checks{REDIR}{description},
             @_,
         );
         return;
@@ -412,10 +405,11 @@ sub initialize_checks() {
 
     # DOLLAR_BRACKET
     $checks{DOLLAR_BRACKET} = {
-        severity    => $STERN,
-        shells      => ( 'POSIX' ),
-        description => q{The $[EXPRESSION] syntax is completely replaced by the }
-            . q{POSIX-conform arithmetic expansion $((EXPRESSION)).},
+        severity => $STERN,
+        shells   => qw(POSIX),
+        description =>
+          q{The $[EXPRESSION] syntax is completely replaced by the }
+          . q{POSIX-conform arithmetic expansion $((EXPRESSION)).},
     };
     $checks{DOLLAR_BRACKET}{function} = sub {
         my $file = shift;
@@ -423,7 +417,7 @@ sub initialize_checks() {
             $file,
             '\$\[.*\]',
             "Severity $checks{DOLLAR_BRACKET}{severity} at $file:LINE_NUMBER: "
-                . $checks{DOLLAR_BRACKET}{description},
+              . $checks{DOLLAR_BRACKET}{description},
             @_,
         );
         return;
@@ -431,18 +425,18 @@ sub initialize_checks() {
 
     # BACKTICKS
     $checks{BACKTICKS} = {
-        severity    => $HARSH,
-        shells      => ( 'POSIX' ),
-        description => q{`COMMANDS` is an older form of the command substitution. }
-            . q{The usage of the POSIX-form $(COMMANDS) is preferred.} ,
+        severity    => $GENTLE,
+        shells      => qw(BOURNE),
+        description => q{Bourne shell does not support the POSIX-form}
+          . q{ $(COMMANDS), use `COMMANDS` instead.},
     };
     $checks{BACKTICKS}{function} = sub {
         my $file = shift;
         check_pattern(
             $file,
-            '\`.*\`',
+            '\$\(.*\)',
             "Severity $checks{BACKTICKS}{severity} at $file:LINE_NUMBER: "
-                . $checks{BACKTICKS}{description},
+              . $checks{BACKTICKS}{description},
             @_,
         );
         return;
@@ -451,9 +445,9 @@ sub initialize_checks() {
     # FUNCTION
     $checks{FUNCTION} = {
         severity    => $STERN,
-        shells      => ( 'POSIX' ),
-        description => q{The "function NAME { ...; }" form of the function definition}
-            . q{ is not recommended simply use NAME() { ...; } to define a function.},
+        shells      => qw(POSIX),
+        description => q{The "function NAME" form of the function definition is}
+          . q{ ksh-specific simply use "NAME()" to define a function.},
     };
     $checks{FUNCTION}{function} = sub {
         my $file = shift;
@@ -461,7 +455,7 @@ sub initialize_checks() {
             $file,
             'function\ *' . $NAME_PATTERN . '\ *{',
             "Severity $checks{FUNCTION}{severity} at $file:LINE_NUMBER: "
-                . $checks{FUNCTION}{description},
+              . $checks{FUNCTION}{description},
             @_,
         );
         return;
@@ -469,11 +463,10 @@ sub initialize_checks() {
 
     # LET
     $checks{LET} = {
-        severity    => $HARSH,
-        shells      => ( 'POSIX' ),
-        description => q{"let MATH" is the classic form of the arithmetic evaluation }
-            . q{command. Bash has an own compound command for that, which should be used}
-                . q{ if possible: ": $((MATH))".} ,
+        severity => $HARSH,
+        shells   => qw(POSIX),
+        description =>
+          q{"let" is ksh-specific, use the $((...)) POSIX form instead.}
     };
     $checks{LET}{function} = sub {
         my $file = shift;
@@ -481,22 +474,26 @@ sub initialize_checks() {
             $file,
             'let\ ',
             "Severity $checks{LET}{severity} at $file:LINE_NUMBER: "
-                . $checks{LET}{description},,
+              . $checks{LET}{description},
+            ,
             @_,
         );
         return;
     };
 
-
     ############
     # Formatting
 
-    # LONG_LINES
+ # LONG_LINES
+ #
+ # Sun's coding conventions suggest 80 columns, the majority of the Linux kernel
+ # is formatted to fit in 80 columns -> let's skipt to 80 (VT-100)
     $checks{LONG_LINES} = {
-        severity    => $CRUEL,
-        shells      => ( 'POSIX' ),
-        description => 'Line is longer than 78 characters, consider splitting it over'
-            . " multiple lines to increase readability.",
+        severity => $CRUEL,
+        shells   => qw(POSIX),
+        description =>
+          q{Line is longer than 80 characters, consider splitting it over}
+          . q{ multiple lines to increase readability.},
     };
     $checks{LONG_LINES}{function} = sub {
         my $file    = shift;
@@ -504,10 +501,10 @@ sub initialize_checks() {
         my $counter = 0;
         for my $line (@lines) {
             $counter++;
-            if ( length $line > 78 ) {
-                print "Severity $checks{LONG_LINES}{severity} at $file:$counter: "
-                    . $checks{LONG_LINES}{description}
-                        . "\n";
+            if ( length $line > 80 ) {
+                print
+                  "Severity $checks{LONG_LINES}{severity} at $file:$counter: "
+                  . $checks{LONG_LINES}{description} . "\n";
             }
         }
         return;
@@ -525,36 +522,33 @@ initialize_checks();
 ############################
 # Parse command line options
 
-Getopt::Long::Configure(
-    'bundling',
-    'no_ignore_case'
-);
+Getopt::Long::Configure( 'bundling', 'no_ignore_case' );
 
 $getopt_result = GetOptions(
 
     # severity levels
-    '1|brutal'      => sub { $severity = 1; },
-    '2|cruel'       => sub { $severity = 2; },
-    '3|harsh'       => sub { $severity = 3; },
-    '4|stern'       => sub { $severity = 4; },
-    '5|gentle'      => sub { $severity = 5; },
-    'severity'      => \$severity,
+    '1|brutal' => sub { $severity = 1; },
+    '2|cruel'  => sub { $severity = 2; },
+    '3|harsh'  => sub { $severity = 3; },
+    '4|stern'  => sub { $severity = 4; },
+    '5|gentle' => sub { $severity = 5; },
+    'severity' => \$severity,
 
-    'list|l:s'      => \$list_format,            # optional string
-    
-    'color|colour!' => \$color,                  # can be negated
+    'list|l:s' => \$list_format,    # optional string
+
+    'color|colour!' => \$color,     # can be negated
 
     # shells
-    'bourne!'       => \$bourne,
-    'posix!'        => \$posix,
-    
-    'help|h|?'      => \$help,
-    'verbose|v+'    => \$verbosity,
-    'version|V'     => sub { print "bashcritic version $VERSION\n"; exit 0; },
-    
+    'bourne!' => \$bourne,
+    'posix!'  => \$posix,
+
+    'help|h|?'   => \$help,
+    'verbose|v+' => \$verbosity,
+    'version|V'  => sub { print "bashcritic version $VERSION\n"; exit 0; },
+
 ) or pod2usage();
 
-if (defined $list_format) {
+if ( defined $list_format ) {
     list_checks($list_format);
     exit 0;
 }
@@ -596,8 +590,9 @@ else {
 # check if Term::ANSIColors is available
 
 eval { require Term::ANSIColor; };
-if ($@ && $color) {
-    print "warning 'Term::ANSIColor' is not available: cannot colorize output\n";
+if ( $EVAL_ERROR && $color ) {
+    print
+      "warning 'Term::ANSIColor' is not available: cannot colorize output\n";
     $color = 0;
 }
 
@@ -608,7 +603,7 @@ if ($color) {
 
 ################
 # process shells
-if ($posix)  { push @shells, 'POSIX';  }
+if ($posix)  { push @shells, 'POSIX'; }
 if ($bourne) { push @shells, 'BOURNE'; }
 
 ##############################################################################

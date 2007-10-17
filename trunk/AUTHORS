@@ -1,3 +1,9 @@
 Matteo Corti <matteo.corti@id.ethz.ch>
 
-Many thanks to Stephan Chazelas for his great help on comp.unix.shell
+Many thanks to
+
+* Jan Schampera. His hints on http://www.bash-hackers.org where my
+  first source of inspiration
+
+* Stephan Chazelas for his great help on comp.unix.shell reviewing my
+  work
