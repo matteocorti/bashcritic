@@ -1,6 +1,14 @@
 2007-10-17  Matteo Corti  <matteo.corti@id.ethz.ch>
 
 	* bashcritic (initialize_checks): a given rule is checked only for a set of shells
+	* bashcritic (initialize_checks): 80 colums seems to be what is usually recommended (Sun, Linux kernel)
+	* bashcritic (initialize_checks): rewording of the FUNCTION description
+	* bashcritic (initialize_checks): $() not in bourne -> ``
+	* bashcritic (initialize_checks): &> is not posix, >& is OK
+	* bashcritic (initialize_checks): removed the advice about arithmetic compounds
+	* bashcritic (initialize_checks): warn about here string for every shell
+	* bashcritic (initialize_checks): reformatted EXPORT_ASSIGN which is only relevant for bourne
+	* bashcritic (initialize_checks): new rule about export and variable quoting
 
 2007-10-16  Matteo Corti  <matteo.corti@id.ethz.ch>
 

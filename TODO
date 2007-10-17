@@ -8,6 +8,12 @@ Programming
 
 * sort the checks hash by severity? description? in the listing
 
+* plug-in model:
+  * put rules in files?
+
+IMPORTANT
+* all the pattern should not be in a comment/string/...
+
 Check for
 =========
 
