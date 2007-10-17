@@ -1,5 +1,6 @@
 2007-10-17  Matteo Corti  <matteo.corti@id.ethz.ch>
 
+	* bashcritic (initialize_checks): the field shells is now an array reference
 	* bashcritic (initialize_checks): a given rule is checked only for a set of shells
 	* bashcritic (initialize_checks): 80 colums seems to be what is usually recommended (Sun, Linux kernel)
 	* bashcritic (initialize_checks): rewording of the FUNCTION description
