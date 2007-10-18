@@ -5,7 +5,7 @@
 	* bashcritic (initialize_checks): added a test select (closes #18)
 	* bashcritic (initialize_checks): added a test for tilde expansion on Bourne (closes #15)
 	* bashcritic (initialize_checks): added a test for unset in Bourne (closes #26)
-	* bashcritic (initialize_checks): rule listings are sorted (closes #32)
+	* bashcritic (initialize_checks): rule listings are sorted (closes #2)
 
 2007-10-17  Matteo Corti  <matteo.corti@id.ethz.ch>
 
