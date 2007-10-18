@@ -4,6 +4,7 @@
 	* bashcritic (initialize_checks): added a test for $(( )) in Bourne (closes #11)
 	* bashcritic (initialize_checks): added a test select (closes #18)
 	* bashcritic (initialize_checks): added a test for tilde expansion on Bourne (closes #15)
+	* bashcritic (initialize_checks): added a test for unset in Bourne (closes #26)
 
 2007-10-17  Matteo Corti  <matteo.corti@id.ethz.ch>
 
@@ -26,4 +27,3 @@
 2007-10-12  Matteo Corti  <matteo.corti@id.ethz.ch>
 
 	* bashcritic: added British spelling for --colour	
-
