@@ -151,8 +151,15 @@ sub list_checks {
             -exitval => $EXIT_USAGE,
         );
     }
-
-    for my $name ( keys %checks ) {
+    # sort by severity and then by message
+    for my $name (
+        sort
+            {
+                ${$checks{$a}}{severity}    cmp ${$checks{$b}}{severity} ||
+                ${$checks{$a}}{description} cmp ${$checks{$b}}{description}
+            }
+            keys %checks
+    ) {
 
         my $shells;
         for my $s (@{$checks{$name} {shells}}) {
