@@ -510,7 +510,7 @@ sub initialize_checks {
         my $counter = 0;
         for my $line (@lines) {
             $counter++;
-            if ( length $line > 80 ) {
+            if ( length $line > 81 ) {
                 print
                   "Severity $checks{LONG_LINES}{severity} at $file:$counter: "
                   . $checks{LONG_LINES}{description} . "\n";
