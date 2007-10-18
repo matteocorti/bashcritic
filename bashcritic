@@ -490,6 +490,26 @@ sub initialize_checks {
         return;
     };
 
+    # BOURNE_ARITH
+    $checks{BOURNE_ARITH} = {
+        severity => $HARSH,
+        shells   => [ 'BOURNE' ],
+        description =>
+          q{$((...)) is POSIX but not Bourne}
+    };
+    $checks{BOURNE_ARITH}{function} = sub {
+        my $file = shift;
+        check_pattern(
+            $file,
+            '\$\(\(.*\))',
+            "Severity $checks{BOURNE_ARITH}{severity} at $file:LINE_NUMBER: "
+              . $checks{BOURNE_ARITH}{description},
+            ,
+            @_,
+        );
+        return;
+    };
+
     # RANDOM
     $checks{RANDOM} = {
         severity => $STERN,
