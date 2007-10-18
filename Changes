@@ -1,3 +1,7 @@
+2007-10-18  Matteo Corti  <matteo.corti@id.ethz.ch>
+
+	* bashcritic (initialize_checks): added a test for $SECONDS and $RANDOM (closes #22)
+
 2007-10-17  Matteo Corti  <matteo.corti@id.ethz.ch>
 
 	* bashcritic (initialize_checks): the field shells is now an array reference

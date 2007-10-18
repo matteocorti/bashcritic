@@ -490,6 +490,46 @@ sub initialize_checks {
         return;
     };
 
+    # RANDOM
+    $checks{RANDOM} = {
+        severity => $STERN,
+        shells   => [ 'BOURNE', 'CSH', 'POSIX', 'TCSH', ],
+        description =>
+          q{$RANDOM is bash/ksh/zsh specific. Use awk's rand() for randomness.},
+    };
+    $checks{RANDOM}{function} = sub {
+        my $file = shift;
+        check_pattern(
+            $file,
+            '\$RANDOM',
+            "Severity $checks{RANDOM}{severity} at $file:LINE_NUMBER: "
+              . $checks{RANDOM}{description},
+            ,
+            @_,
+        );
+        return;
+    };
+
+    # SECONDS
+    $checks{SECONDS} = {
+        severity => $STERN,
+        shells   => [ 'BOURNE', 'CSH', 'POSIX', 'TCSH', ],
+        description =>
+          q{Avoid $SECONDS: is bash/ksh/zsh specific.},
+    };
+    $checks{SECONDS}{function} = sub {
+        my $file = shift;
+        check_pattern(
+            $file,
+            '\$SECONDS',
+            "Severity $checks{SECONDS}{severity} at $file:LINE_NUMBER: "
+              . $checks{SECONDS}{description},
+            ,
+            @_,
+        );
+        return;
+    };
+
     ############
     # Formatting
 
