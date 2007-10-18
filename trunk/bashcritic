@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/env perl
 
 # RCS information (required by Perl::Critic)
 # enable substitution with:
@@ -14,7 +14,7 @@ use strict;
 use warnings;
 use Carp;
 
-use version; our $VERSION = '0.2.0';
+use version; our $VERSION = '0.2.1';
 
 use Data::Dumper;
 use File::Slurp;
@@ -112,9 +112,9 @@ sub perform_checks {
     verbose "checking $file\n";
     for my $name ( keys %checks ) {
         if ( ${ $checks{$name} }{severity} >= $severity ) {
-
             my $perform = 0;
-            for my $shell ( @{ $checks{$name} }{shells} ) {
+            for my $shell ( @{$checks{$name} {shells}} ) {
+                verbose "  should be checked for: $shell\n", 1;
                 $perform ||= any { /$shell/mx } @shells;
             }
 
@@ -122,6 +122,7 @@ sub perform_checks {
                 verbose '> checking rule: '
                   . ${ $checks{$name} }{description}
                   . "\n", 1;
+
                 &{ ${ $checks{$name} }{function} }( $file, read_file($file) );
             }
         }
@@ -361,7 +362,7 @@ sub initialize_checks {
           . q{(e.g., 'a="A B"; export b=$a' exports b as "A B" on}
           . q{ bash AT&T ksh making them non-POSIX compliant},
     };
-    $checks{EXPORT_ASSIGN}{function} = sub {
+    $checks{EXPORT_NOT_QUOTED}{function} = sub {
         my $file = shift;
         check_pattern(
             $file,
@@ -492,10 +493,10 @@ sub initialize_checks {
     ############
     # Formatting
 
- # LONG_LINES
- #
- # Sun's coding conventions suggest 80 columns, the majority of the Linux kernel
- # is formatted to fit in 80 columns -> let's skipt to 80 (VT-100)
+    # LONG_LINES
+    #
+    # Sun's coding conventions suggest 80 columns, the majority of the Linux kernel
+    # is formatted to fit in 80 columns -> let's skipt to 80 (VT-100)
     $checks{LONG_LINES} = {
         severity => $CRUEL,
         shells   => [ 'POSIX' ],
