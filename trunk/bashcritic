@@ -45,7 +45,6 @@ my %checks;
 my $bourne = 0;
 my $color  = 1;
 my $getopt_result;
-my $help;
 my $list_format;
 my $posix     = 1;
 my $severity  = 5;
@@ -551,7 +550,7 @@ $getopt_result = GetOptions(
     'bourne!' => \$bourne,
     'posix!'  => \$posix,
 
-    'help|h|?'   => \$help,
+    'help|h|?'   => sub { pod2usage(); },
     'verbose|v+' => \$verbosity,
     'version|V'  => sub { print "bashcritic version $VERSION\n"; exit 0; },
 
