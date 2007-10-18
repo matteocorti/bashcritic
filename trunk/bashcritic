@@ -570,6 +570,26 @@ sub initialize_checks {
         return;
     };
 
+    # TILDE
+    $checks{TILDE} = {
+        severity => $STERN,
+        shells   => [ 'BOURNE', ],
+        description =>
+          q{Bourne shell does not provile tilde expansion},
+    };
+    $checks{TILDE}{function} = sub {
+        my $file = shift;
+        check_pattern(
+            $file,
+            '\ ~',
+            "Severity $checks{TILDE}{severity} at $file:LINE_NUMBER: "
+              . $checks{TILDE}{description},
+            ,
+            @_,
+        );
+        return;
+    };
+
     ############
     # Formatting
 
