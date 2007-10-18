@@ -590,6 +590,26 @@ sub initialize_checks {
         return;
     };
 
+    # UNSET
+    $checks{UNSET} = {
+        severity => $BRUTAL,
+        shells   => [ 'BOURNE', ],
+        description =>
+          q{unset is not supported by every Bash shell},
+    };
+    $checks{UNSET}{function} = sub {
+        my $file = shift;
+        check_pattern(
+            $file,
+            'unset\ ',
+            "Severity $checks{UNSET}{severity} at $file:LINE_NUMBER: "
+              . $checks{UNSET}{description},
+            ,
+            @_,
+        );
+        return;
+    };
+
     ############
     # Formatting
 
