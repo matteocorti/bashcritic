@@ -550,6 +550,26 @@ sub initialize_checks {
         return;
     };
 
+    # SELECT
+    $checks{SELECT} = {
+        severity => $STERN,
+        shells   => [ 'BOURNE', 'CSH', 'POSIX', 'TCSH', ],
+        description =>
+          q{"select" is ksh, bash and zsh specific. Use printd and read instead.},
+    };
+    $checks{SELECT}{function} = sub {
+        my $file = shift;
+        check_pattern(
+            $file,
+            '\$SELECT',
+            "Severity $checks{SELECT}{severity} at $file:LINE_NUMBER: "
+              . $checks{SELECT}{description},
+            ,
+            @_,
+        );
+        return;
+    };
+
     ############
     # Formatting
 

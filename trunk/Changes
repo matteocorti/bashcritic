@@ -2,6 +2,7 @@
 
 	* bashcritic (initialize_checks): added a test for $SECONDS and $RANDOM (closes #22)
 	* bashcritic (initialize_checks): added a test for $(( )) in Bourne (closes #11)
+	* bashcritic (initialize_checks): added a test select (closes #18)
 
 2007-10-17  Matteo Corti  <matteo.corti@id.ethz.ch>
 
