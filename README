@@ -1,4 +1,4 @@
-dprofpp_grapher generates a graphic representation of Perl profile data.
+bashcritic is a tool to check shell scripts for common pitfalls
 
-See dprofpp_grapher(1) for details
+See INSTALL for installation instructions
 
