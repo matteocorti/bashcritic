@@ -809,11 +809,25 @@ bashcritic depends on
 
 =item * Carp;
 
-=item * version;
+=item * Data::Dumper
 
 =item * English
 
+=item * English
+
+=item * File::Slurp
+
 =item * Getopt::Long
+
+=item * Getopt::Long
+
+=item * List::MoreUtils
+
+=item * List::Util
+
+=item * Pod::Usage
+
+=item * version;
 
 =back
 
