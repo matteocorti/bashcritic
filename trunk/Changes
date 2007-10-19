@@ -1,29 +1,37 @@
+2007-10-19  Matteo Corti  <matteo.corti@id.ethz.ch>
+
+	* bashcritic: changed the shebang to '#!perl' so that it is
+	              automatically patched by make
+
 2007-10-18  Matteo Corti  <matteo.corti@id.ethz.ch>
 
-	* bashcritic (initialize_checks): added a test for $SECONDS and $RANDOM (closes #22)
-	* bashcritic (initialize_checks): added a test for $(( )) in Bourne (closes #11)
-	* bashcritic (initialize_checks): added a test select (closes #18)
-	* bashcritic (initialize_checks): added a test for tilde expansion on Bourne (closes #15)
-	* bashcritic (initialize_checks): added a test for unset in Bourne (closes #26)
-	* bashcritic (initialize_checks): rule listings are sorted (closes #2)
+	* bashcritic: added a test for $SECONDS and $RANDOM (closes #22)
+	* bashcritic: added a test for $(( )) in Bourne (closes #11)
+	* bashcritic: added a test select (closes #18)
+	* bashcritic: added a test for tilde expansion on Bourne (closes #15)
+	* bashcritic: added a test for unset in Bourne (closes #26)
+	* bashcritic: rule listings are sorted (closes #2)
 
 2007-10-17  Matteo Corti  <matteo.corti@id.ethz.ch>
 
-	* bashcritic (initialize_checks): the field shells is now an array reference
-	* bashcritic (initialize_checks): a given rule is checked only for a set of shells
-	* bashcritic (initialize_checks): 80 colums seems to be what is usually recommended (Sun, Linux kernel)
-	* bashcritic (initialize_checks): rewording of the FUNCTION description
-	* bashcritic (initialize_checks): $() not in bourne -> ``
-	* bashcritic (initialize_checks): &> is not posix, >& is OK
-	* bashcritic (initialize_checks): removed the advice about arithmetic compounds
-	* bashcritic (initialize_checks): warn about here string for every shell
-	* bashcritic (initialize_checks): reformatted EXPORT_ASSIGN which is only relevant for bourne
-	* bashcritic (initialize_checks): new rule about export and variable quoting
+	* bashcritic: the field shells is now an array reference
+	* bashcritic: a given rule is checked only for a set of shells
+	* bashcritic: 80 colums seems to be what is usually recommended (Sun,
+	              Linux kernel)
+	* bashcritic: rewording of the FUNCTION description
+	* bashcritic: $() not in bourne -> ``
+	* bashcritic: &> is not posix, >& is OK
+	* bashcritic: removed the advice about arithmetic compounds
+	* bashcritic: warn about here string for every shell
+	* bashcritic: reformatted EXPORT_ASSIGN which is only relevant for
+	              Bourne
+	* bashcritic: new rule about export and variable quoting
 
 2007-10-16  Matteo Corti  <matteo.corti@id.ethz.ch>
 
-	* bashcritic (initialize_checks): corrected the PATTERN to match >& and &>
-	* bashcritic (initialize_checks): typeset is not standard -> use subshells, new rule for typeset
+	* bashcritic: corrected the PATTERN to match >& and &>
+	* bashcritic: typeset is not standard -> use subshells, new rule for
+	              typeset
 
 2007-10-12  Matteo Corti  <matteo.corti@id.ethz.ch>
 
