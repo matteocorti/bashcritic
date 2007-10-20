@@ -1,5 +1,6 @@
 2007-10-20  Matteo Corti  <matteo.corti@id.ethz.ch>
 
+        * new version 0.3.0
 	* bashcritic: comments and strings are not processed anymore
 	* bashcritic: warnings are sorted by line number;
 

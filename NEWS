@@ -1,5 +1,15 @@
-2007-      Alpha version 0.3.0
+2007-10-20 Alpha version 0.3.0
            * rules are not checked in comments and strings
+           * warnings are no more grouped by type but sorted by line number
+           * new checks:
+             - $RANDOM $SECONDS are bash/ksh/zsh
+             - $((...)) is POSIX but not Bourne
+             - checks for tilde expansion in Bourne
+             - unset is not in every Bourne shell
+           * fixes:
+             - --help was ignored
+             - missing function for EXPORT_NOT_QUOTED (fixed in 0.2.1)
+             - the shebang is patched by Makefile.PL/make
 2007-10-17 Alpha version 0.2.0 which includes a plethora of changes
            suggested on comp.unix.shell (see AUTHORS for details and Changes
            for a detailed list)
