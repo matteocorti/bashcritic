@@ -33,7 +33,6 @@ use Getopt::Long;
 use Pod::Usage qw(pod2usage);
 use List::Util qw(first);
 use List::MoreUtils qw(any);
-use File::Comments;
 
 ##############################################################################
 # Configuration
@@ -51,6 +50,9 @@ Getopt::Long::Configure( 'bundling', 'ignorecase', );
 #   - function    : the subrouting implementing the test
 #   - description : a short description
 my %checks;
+
+# array of warnings
+my @warnings;
 
 # command line options
 my $bourne          = 0; # Bourne shell compatibility
@@ -278,9 +280,9 @@ sub check_pattern {
 # See also  : n/a
 sub issue_warning {
     
-    my ($severity, $line, $text) = @_;
+    my ($severity, $file, $line, $text) = @_;
 
-    my $message = "Severity $severity at $file:$line: $text\n"
+    my $message = "Severity $severity at $file:$line: $text\n";
     
     push @warnings, [ $line, $message ];
     
@@ -438,9 +440,9 @@ sub initialize_checks {
         my $file = shift;
         check_pattern(
             $file,
+            $checks{SOURCE}{severity},
             'source\ ',
-            "Severity $checks{SOURCE}{severity} at $file:LINE_NUMBER: "
-              . $checks{SOURCE}{description},
+            $checks{SOURCE}{description},
             @_,
         );
         return;
@@ -458,9 +460,9 @@ sub initialize_checks {
         my $file = shift;
         check_pattern(
             $file,
+            $checks{DECLARE}{severity},
             'declare\ ',
-            "Severity $checks{DECLARE}{severity} at $file:LINE_NUMBER: "
-              . $checks{DECLARE}{description},
+            $checks{DECLARE}{description},
             @_,
         );
         return;
@@ -478,9 +480,9 @@ sub initialize_checks {
         my $file = shift;
         check_pattern(
             $file,
+            $checks{TYPESET}{severity},
             'typeset\ ',
-            "Severity $checks{TYPESET}{severity} at $file:LINE_NUMBER: "
-              . $checks{TYPESET}{description},
+            $checks{TYPESET}{description},
             @_,
         );
         return;
@@ -498,9 +500,9 @@ sub initialize_checks {
         my $file = shift;
         check_pattern(
             $file,
+            $checks{HERE_STRING}{severity},
             '<<<',
-            "Severity $checks{HERE_STRING}{severity} at $file:LINE_NUMBER: "
-              . $checks{HERE_STRING}{description},
+            $checks{HERE_STRING}{description},
             @_,
         );
         return;
@@ -518,9 +520,9 @@ sub initialize_checks {
         my $file = shift;
         check_pattern(
             $file,
+            $checks{EXPORT_ASSIGN}{severity},
             'export\ .*=',
-            "Severity $checks{EXPORT_ASSIGN}{severity} at $file:LINE_NUMBER: "
-              . $checks{EXPORT_ASSIGN}{description},
+            $checks{EXPORT_ASSIGN}{description},
             @_,
         );
         return;
@@ -538,9 +540,9 @@ sub initialize_checks {
         my $file = shift;
         check_pattern(
             $file,
+            $checks{EXPORT_ASSIGN}{severity},
             'export\ .*=\ *[^"]',
-            "Severity $checks{EXPORT_ASSIGN}{severity} at $file:LINE_NUMBER: "
-              . $checks{EXPORT_ASSIGN}{description},
+            $checks{EXPORT_ASSIGN}{description},
             @_,
         );
         return;
@@ -557,9 +559,9 @@ sub initialize_checks {
         my $file = shift;
         check_pattern(
             $file,
+            $checks{BASHISH_TEST}{severity},
             '\[\[\ .*\ \]\]',
-            "Severity $checks{BASHISH_TEST}{severity} at $file:LINE_NUMBER: "
-              . $checks{BASHISH_TEST}{description},
+            $checks{BASHISH_TEST}{description},
             @_,
         );
         return;
@@ -576,9 +578,9 @@ sub initialize_checks {
         my $file = shift;
         check_pattern(
             $file,
+            $checks{REDIR}{severity},
             '&>',
-            "Severity $checks{REDIR}{severity} at $file:LINE_NUMBER: "
-              . $checks{REDIR}{description},
+            $checks{REDIR}{description},
             @_,
         );
         return;
@@ -596,9 +598,9 @@ sub initialize_checks {
         my $file = shift;
         check_pattern(
             $file,
+            $checks{DOLLAR_BRACKET}{severity},
             '\$\[.*\]',
-            "Severity $checks{DOLLAR_BRACKET}{severity} at $file:LINE_NUMBER: "
-              . $checks{DOLLAR_BRACKET}{description},
+            $checks{DOLLAR_BRACKET}{description},
             @_,
         );
         return;
@@ -615,9 +617,9 @@ sub initialize_checks {
         my $file = shift;
         check_pattern(
             $file,
+            $checks{BACKTICKS}{severity},
             '\$\(.*\)',
-            "Severity $checks{BACKTICKS}{severity} at $file:LINE_NUMBER: "
-              . $checks{BACKTICKS}{description},
+            $checks{BACKTICKS}{description},
             @_,
         );
         return;
@@ -634,9 +636,9 @@ sub initialize_checks {
         my $file = shift;
         check_pattern(
             $file,
+            $checks{FUNCTION}{severity},
             'function\ *' . $NAME_PATTERN . '\ *{',
-            "Severity $checks{FUNCTION}{severity} at $file:LINE_NUMBER: "
-              . $checks{FUNCTION}{description},
+            $checks{FUNCTION}{description},
             @_,
         );
         return;
@@ -653,10 +655,9 @@ sub initialize_checks {
         my $file = shift;
         check_pattern(
             $file,
+            $checks{LET}{severity},
             'let\ ',
-            "Severity $checks{LET}{severity} at $file:LINE_NUMBER: "
-              . $checks{LET}{description},
-            ,
+            $checks{LET}{description},
             @_,
         );
         return;
@@ -673,10 +674,9 @@ sub initialize_checks {
         my $file = shift;
         check_pattern(
             $file,
+            $checks{BOURNE_ARITH}{severity},
             '\$\(\(.*\))',
-            "Severity $checks{BOURNE_ARITH}{severity} at $file:LINE_NUMBER: "
-              . $checks{BOURNE_ARITH}{description},
-            ,
+            $checks{BOURNE_ARITH}{description},
             @_,
         );
         return;
@@ -693,10 +693,9 @@ sub initialize_checks {
         my $file = shift;
         check_pattern(
             $file,
+            $checks{RANDOM}{severity},
             '\$RANDOM',
-            "Severity $checks{RANDOM}{severity} at $file:LINE_NUMBER: "
-              . $checks{RANDOM}{description},
-            ,
+            $checks{RANDOM}{description},
             @_,
         );
         return;
@@ -713,10 +712,9 @@ sub initialize_checks {
         my $file = shift;
         check_pattern(
             $file,
+            $checks{SECONDS}{severity},
             '\$SECONDS',
-            "Severity $checks{SECONDS}{severity} at $file:LINE_NUMBER: "
-              . $checks{SECONDS}{description},
-            ,
+            $checks{SECONDS}{description},
             @_,
         );
         return;
@@ -733,10 +731,9 @@ sub initialize_checks {
         my $file = shift;
         check_pattern(
             $file,
+            $checks{SELECT}{severity},
             '\$SELECT',
-            "Severity $checks{SELECT}{severity} at $file:LINE_NUMBER: "
-              . $checks{SELECT}{description},
-            ,
+            $checks{SELECT}{description},
             @_,
         );
         return;
@@ -753,10 +750,9 @@ sub initialize_checks {
         my $file = shift;
         check_pattern(
             $file,
+            $checks{TILDE}{severity},
             '\ ~',
-            "Severity $checks{TILDE}{severity} at $file:LINE_NUMBER: "
-              . $checks{TILDE}{description},
-            ,
+            $checks{TILDE}{description},
             @_,
         );
         return;
@@ -773,10 +769,9 @@ sub initialize_checks {
         my $file = shift;
         check_pattern(
             $file,
+            $checks{UNSET}{severity},
             'unset\ ',
-            "Severity $checks{UNSET}{severity} at $file:LINE_NUMBER: "
-              . $checks{UNSET}{description},
-            ,
+            $checks{UNSET}{description},
             @_,
         );
         return;
@@ -803,9 +798,12 @@ sub initialize_checks {
         for my $line (@lines) {
             $counter++;
             if ( length $line > 81 ) {
-                print
-                  "Severity $checks{LONG_LINES}{severity} at $file:$counter: "
-                  . $checks{LONG_LINES}{description} . "\n";
+                issue_warning(
+                    $checks{LONG_LINES}{severity},
+                    $file,
+                    $counter,
+                    $checks{LONG_LINES}{description},
+                );
             }
         }
         return;
@@ -911,7 +909,15 @@ if ($bourne) { push @shells, 'BOURNE'; }
 # check the files
 
 for my $file (@FILES) {
+
     perform_checks($file);
+
+    for my $warn_message ( sort { $a->[0] <=> $b->[0] } @warnings ) {
+        print ${$warn_message}[1];
+    }
+
+    undef @warnings;
+    
 }
 
 1;
