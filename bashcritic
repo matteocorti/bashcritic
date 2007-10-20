@@ -1,5 +1,15 @@
 #!perl
-
+#
+# bashcritic is a tool to check shell scripts for common pitfalls
+#
+# See  the INSTALL file for installation instructions
+#
+# Copyright (c) 2007, ETH Zurich.
+#
+# This module is free software; you can redistribute it and/or modify it
+# under the terms of GNU general public license (gpl) version 3.
+# See the LICENSE file for details.
+#
 # RCS information (required by Perl::Critic)
 # enable substitution with:
 #   $ svn propset svn:keywords "Id Revision HeadURL Source Date"
@@ -14,7 +24,7 @@ use strict;
 use warnings;
 use Carp;
 
-use version; our $VERSION = '0.2.1';
+use version; our $VERSION = '0.3.0';
 
 use Data::Dumper;
 use File::Slurp;
@@ -23,6 +33,7 @@ use Getopt::Long;
 use Pod::Usage qw(pod2usage);
 use List::Util qw(first);
 use List::MoreUtils qw(any);
+use File::Comments;
 
 ##############################################################################
 # Configuration
@@ -42,13 +53,14 @@ Getopt::Long::Configure( 'bundling', 'ignorecase', );
 my %checks;
 
 # command line options
-my $bourne = 0;
-my $color  = 1;
-my $getopt_result;
+my $bourne          = 0; # Bourne shell compatibility
+my $color           = 1; # colorize output (default)
 my $list_format;
-my $posix     = 1;
-my $severity  = 5;
-my $verbosity = 0;
+my $posix           = 1; # POSIX compatibility (default)
+my $severity        = 5; # severity level (default 5)
+my $verbosity       = 0; # verbose output
+
+my $getopt_result;
 
 my @all_shells = qw( BASH BOURNE CSH KSH POSIX TCSH ZSH );
 
@@ -109,6 +121,10 @@ sub verbose {
 # See also  : n/a
 sub perform_checks {
     my $file = shift;
+
+    # file content
+    my @file_lines = pre_process_file($file);
+
     verbose "checking $file\n";
     for my $name ( keys %checks ) {
         if ( ${ $checks{$name} }{severity} >= $severity ) {
@@ -123,7 +139,7 @@ sub perform_checks {
                   . ${ $checks{$name} }{description}
                   . "\n", 1;
 
-                &{ ${ $checks{$name} }{function} }( $file, read_file($file) );
+                &{ ${ $checks{$name} }{function} }( $file, @file_lines );
             }
         }
     }
@@ -170,7 +186,7 @@ sub list_checks {
                 $shells = $s;
             }
         }
-            
+
         if ( $format eq 'trac' ) {
 
             # || description || severity || shells ||
@@ -222,30 +238,179 @@ sub colorize_checks {
 # Purpose   : searches for the given pattern in the lines array and prints a
 #             message if found
 # Returns   : n/a
-# Arguments : $file    : name of the file to check
-#             $pattern : the pattern to look for
-#             $message : the warning message ('LINE_NUMBER' will be
-#                        substituted with the current line number)
-#             @lines   : array of lines of the given file
+# Arguments : $file     : name of the file to check
+#             $severity : problem severity
+#             $pattern  : the pattern to look for
+#             $message  : the warning message ('LINE_NUMBER' will be
+#                         substituted with the current line number)
+#             @lines    : array of lines of the given file
 # Throws    : n/a
 # Comments  : n/a
 # See also  : n/a
 sub check_pattern {
 
-    my ( $file, $pattern, $message, @lines ) = @_;
+    my ( $file, $severity, $pattern, $message, @lines ) = @_;
 
     my $counter = 0;
 
     for my $line (@lines) {
         $counter++;
         if ( $line =~ /$pattern/mx ) {
-            my $error = $message;
-            $error =~ s/LINE_NUMBER/$counter/mx;
-            print "$error\n";
+            issue_warning($severity, $file, $counter, $message);
         }
     }
 
     return;
+
+}
+
+##############################################################################
+# Usage     : issue_warning($severity, $file, $line, $text)
+# Purpose   : stores a new warning in the warning array. The array is then
+#             sorted by severity
+# Returns   : n/a
+# Arguments : $severity : warning severity level
+#             $file     : file
+#             $line     : line number
+#             $text     : warining text
+# Throws    : n/a
+# Comments  : n/a
+# See also  : n/a
+sub issue_warning {
+    
+    my ($severity, $line, $text) = @_;
+
+    my $message = "Severity $severity at $file:$line: $text\n"
+    
+    push @warnings, [ $line, $message ];
+    
+}
+
+##############################################################################
+# Usage     : escaped($position, @chars);
+# Purpose   : checks if the character at the given position is escaped
+# Returns   : true if the character at the given position is escaped
+# Arguments : $position : position in the array
+#             @chars    : array of characters
+# Throws    : n/a
+# Comments  : maybe an overkill but makes the code in pre_process_file more
+#             readable
+# See also  : n/a
+sub escaped {
+
+    my ($position, @chars) = @_;
+
+    return ($position > 0) && ($chars[$position-1] eq q{\\});
+
+}
+
+##############################################################################
+# Usage     : @lines = pre_process_file($filename);
+#             $text  = pre_process_file($filename);
+# Purpose   : reads the given file and blanks comments and strings.
+#             We do not preserve strings even if they could be executed at
+#             a later point.
+#             We are blanking so that we keep the very same file structure
+#             (position in the file)
+# Returns   : an array with the source file lines or a string with the whole
+#             file if called in scalar context
+# Arguments : $filename : name of the file to check
+# Throws    : n/a
+# Comments  : n/a
+# See also  : n/a
+sub pre_process_file {
+
+    my $filename = shift;
+
+    # we do the processing on the whole file and we split it later
+
+    my $text = read_file($filename);
+
+    # blanking (this seems highly inefficient but will do for the moment)
+    my $i         = 0;
+    my @char      = split //mx, $text;
+
+    # status variables
+    my $comment   = 0;
+    my $q_string  = 0;
+    my $qq_string = 0;
+
+    while ($i < @char) {
+
+        if ($comment) {
+
+            # we are inside a comment
+
+            if ($char[$i] eq "\n") { # EOL
+                $comment = 0;
+            } else {
+                $char[$i] = q{ };
+            }
+
+        } elsif ($q_string) {
+
+            # we are inside a single quoted string
+
+            if (
+                $char[$i] eq q{'}    &&    # we found a '
+                !escaped($i, @char)        # that is not escaped
+            ) {
+                $q_string = 0;
+            } else {
+                $char[$i] = q{ };
+            }
+
+        } elsif ($qq_string) {
+
+            # we are inside a double quoted string
+
+            if (
+                $char[$i] eq q{"}    &&    # we found a "
+                !escaped($i, @char)        # that is not escaped
+            ) {
+                $qq_string = 0;
+            } else {
+                $char[$i] = q{ };
+            }
+
+        } else {
+
+            # code
+
+            if (
+                $char[$i] eq q{#}    &&    # we found a #
+                !escaped($i, @char)        # that is not escaped
+            ) {
+                $comment = 1;
+            }
+
+            if (
+                $char[$i] eq q{'}    &&    # we found a '
+                !escaped($i, @char)        # that is not escaped
+            ) {
+                $q_string = 1;
+            }
+
+            if (
+                $char[$i] eq q{"}    &&    # we found a '
+                !escaped($i, @char)        # that is not escaped
+            ) {
+                $qq_string = 1;
+            }
+
+        }
+
+        $i++;
+
+    }
+
+    $text = join q{}, @char;
+
+    if (wantarray) {
+        return split /\n/mx, $text;
+    } else {
+        return $text;
+    }
 
 }
 
@@ -633,7 +798,7 @@ sub initialize_checks {
     };
     $checks{LONG_LINES}{function} = sub {
         my $file    = shift;
-        my @lines   = read_file($file);
+        my @lines   = @_;
         my $counter = 0;
         for my $line (@lines) {
             $counter++;

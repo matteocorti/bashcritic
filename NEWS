@@ -1,3 +1,5 @@
+2007-      Alpha version 0.3.0
+           * rules are not checked in comments and strings
 2007-10-17 Alpha version 0.2.0 which includes a plethora of changes
            suggested on comp.unix.shell (see AUTHORS for details and Changes
            for a detailed list)

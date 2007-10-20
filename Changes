@@ -1,7 +1,12 @@
+2007-10-20  Matteo Corti  <matteo.corti@id.ethz.ch>
+
+	* bashcritic: comments and strings are not processed anymore
+
 2007-10-19  Matteo Corti  <matteo.corti@id.ethz.ch>
 
 	* bashcritic: changed the shebang to '#!perl' so that it is
 	              automatically patched by make
+	* bashcritic: file is read only once
 
 2007-10-18  Matteo Corti  <matteo.corti@id.ethz.ch>
 
