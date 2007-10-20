@@ -173,7 +173,7 @@ sub list_checks {
     for my $name (
         sort
             {
-                ${$checks{$a}}{severity}    cmp ${$checks{$b}}{severity} ||
+                ${$checks{$b}}{severity}    cmp ${$checks{$a}}{severity} ||
                 ${$checks{$a}}{description} cmp ${$checks{$b}}{description}
             }
             keys %checks
