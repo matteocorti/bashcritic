@@ -508,26 +508,6 @@ sub initialize_checks {
         return;
     };
 
-    # EXPORT_ASSIGN
-    $checks{EXPORT_ASSIGN} = {
-        severity => $STERN,
-        shells   => [ 'BOURNE' ],
-        description =>
-          q{Though POSIX allows it, bourne shell don't want the assignment}
-          . ' and the exporting in one command.',
-    };
-    $checks{EXPORT_ASSIGN}{function} = sub {
-        my $file = shift;
-        check_pattern(
-            $file,
-            $checks{EXPORT_ASSIGN}{severity},
-            'export\ .*=',
-            $checks{EXPORT_ASSIGN}{description},
-            @_,
-        );
-        return;
-    };
-
     # EXPORT_NOT_QUOTED
     $checks{EXPORT_NOT_QUOTED} = {
         severity    => $STERN,
@@ -777,6 +757,102 @@ sub initialize_checks {
         return;
     };
 
+    # COMMAND
+    $checks{COMMAND} = {
+        severity => $GENTLE,
+        shells   => [ 'BOURNE', ],
+        description =>
+          q{command is not supported by Bourne shell},
+    };
+    $checks{COMMAND}{function} = sub {
+        my $file = shift;
+        check_pattern(
+            $file,
+            $checks{COMMAND}{severity},
+            'command\ ',
+            $checks{COMMAND}{description},
+            @_,
+        );
+        return;
+    };
+
+    # ALIAS
+    $checks{ALIAS} = {
+        severity => $GENTLE,
+        shells   => [ 'BOURNE', ],
+        description =>
+          q{alias is not supported by Bourne shell},
+    };
+    $checks{ALIAS}{function} = sub {
+        my $file = shift;
+        check_pattern(
+            $file,
+            $checks{ALIAS}{severity},
+            'alias\ ',
+            $checks{ALIAS}{description},
+            @_,
+        );
+        return;
+    };
+
+    # READONLY
+    $checks{READONLY} = {
+        severity => $GENTLE,
+        shells   => [ 'BOURNE', ],
+        description =>
+          q{readonly is not supported by Bourne shell},
+    };
+    $checks{READONLY}{function} = sub {
+        my $file = shift;
+        check_pattern(
+            $file,
+            $checks{READONLY}{severity},
+            'readonly\ ',
+            $checks{READONLY}{description},
+            @_,
+        );
+        return;
+    };
+
+    # DOLLAR_Q
+    $checks{DOLLAR_Q} = {
+        severity => $GENTLE,
+        shells   => [ grep { ($_ ne 'KSH') && ($_ ne 'BASH') && ($_ ne 'ZSH') } @all_shells, ],
+        description =>
+          q{$'...' is ksh93, bash and zsh specific, use printf %b instead},
+    };
+    $checks{DOLLAR_Q}{function} = sub {
+        my $file = shift;
+        check_pattern(
+            $file,
+            $checks{DOLLAR_Q}{severity},
+            q{\$'.*'},
+            $checks{DOLLAR_Q}{description},
+            @_,
+        );
+        return;
+    };
+
+    # EXPORT_ASSIGN
+    $checks{EXPORT_ASSIGN} = {
+        severity => $STERN,
+        shells   => [ 'BOURNE' ],
+        description =>
+          q{Though POSIX allows it, bourne shell don't want the assignment}
+          . ' and the exporting in one command.',
+    };
+    $checks{EXPORT_ASSIGN}{function} = sub {
+        my $file = shift;
+        check_pattern(
+            $file,
+            $checks{EXPORT_ASSIGN}{severity},
+            'export\ .*=',
+            $checks{EXPORT_ASSIGN}{description},
+            @_,
+        );
+        return;
+    };
+
     ############
     # Formatting
 
@@ -952,7 +1028,7 @@ critiques shell scripts
 
 =head1 VERSION
 
-Version 1.0.0
+Version 0.3.0
 
 =head1 REQUIRED ARGUMENTS
 
