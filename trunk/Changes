@@ -1,3 +1,8 @@
+2007-10-25  Matteo Corti  <matteo.corti@id.ethz.ch>
+
+	* bashcritic: check for $'...'
+	* bashcritic: check for command alias and readonly in Bourne'
+
 2007-10-20  Matteo Corti  <matteo.corti@id.ethz.ch>
 
         * new version 0.3.0
