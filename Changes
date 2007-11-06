@@ -1,3 +1,7 @@
+2007-11-06  Matteo Corti  <matteo.corti@id.ethz.ch>
+
+	* bashcritic: reduced the severity levels (info, cosmetic, error)
+
 2007-10-25  Matteo Corti  <matteo.corti@id.ethz.ch>
 
 	* bashcritic: check for $'...'
