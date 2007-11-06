@@ -24,7 +24,7 @@ use strict;
 use warnings;
 use Carp;
 
-use version; our $VERSION = '0.3.0';
+use version; our $VERSION = '0.3.1';
 
 use Data::Dumper;
 use File::Slurp;
@@ -59,7 +59,7 @@ my $bourne          = 0; # Bourne shell compatibility
 my $color           = 1; # colorize output (default)
 my $list_format;
 my $posix           = 1; # POSIX compatibility (default)
-my $severity        = 5; # severity level (default 5)
+my $severity_level  = 2; # severity level (default 1)
 my $verbosity       = 0; # verbose output
 
 my $getopt_result;
@@ -71,11 +71,11 @@ my @shells;
 # constants
 
 # severity levels
-my $GENTLE = 5;
-my $STERN  = 4;
-my $HARSH  = 3;
-my $CRUEL  = 2;
-my $BRUTAL = 1;
+my %severity = (
+    ERROR    => 2,
+    COSMETIC => 1,
+    INFO     => 0,
+);
 
 # according to sysexits on FreeBSD (should check if there is a CPAN module with exit codes
 my $EXIT_USAGE       = 64;
@@ -129,7 +129,7 @@ sub perform_checks {
 
     verbose "checking $file\n";
     for my $name ( keys %checks ) {
-        if ( ${ $checks{$name} }{severity} >= $severity ) {
+        if ( $severity{ ${ $checks{$name} }{severity} } >= $severity_level ) {
             my $perform = 0;
             for my $shell ( @{$checks{$name} {shells}} ) {
                 verbose "  should be checked for: $shell\n", 1;
@@ -222,12 +222,12 @@ sub list_checks {
 # See also  : n/a
 sub colorize_checks {
     for my $key ( keys %checks ) {
-        if ( $checks{$key}{severity} == $GENTLE ) {
+        if ( $checks{$key}{severity} eq 'ERROR' ) {
             $checks{$key}{description} =
               Term::ANSIColor::colored( $checks{$key}{description},
                 'bold red' );
         }
-        if ( $checks{$key}{severity} == $STERN ) {
+        if ( $checks{$key}{severity} eq 'COSMETIC' ) {
             $checks{$key}{description} =
               Term::ANSIColor::colored( $checks{$key}{description}, 'yellow' );
         }
@@ -432,7 +432,7 @@ sub initialize_checks {
 
     # SOURCE
     $checks{SOURCE} = {
-        severity    => $STERN,
+        severity    => 'ERROR',
         shells      => [ 'POSIX' ],
         description => '"source FILE" is not portable use ". FILE" instead.',
     };
@@ -450,7 +450,7 @@ sub initialize_checks {
 
     # DECLARE
     $checks{DECLARE} = {
-        severity => $STERN,
+        severity => 'ERROR',
         shells   => [ 'POSIX' ],
         description =>
             q{"declare keyword" is not portable use subshells (...) or $(...) to define}
@@ -470,7 +470,7 @@ sub initialize_checks {
 
     # TYPESET
     $checks{TYPESET} = {
-        severity => $STERN,
+        severity => 'ERROR',
         shells   => [ 'POSIX' ],
         description =>
           '"typeset keyword" is not portable use subshells (...) or $(...) to define'
@@ -490,7 +490,7 @@ sub initialize_checks {
 
     # HERE_STRING
     $checks{HERE_STRING} = {
-        severity => $STERN,
+        severity => 'ERROR',
         shells   => \@all_shells,
         description =>
           'Avoid here-strings (a special form of the here-document)'
@@ -510,7 +510,7 @@ sub initialize_checks {
 
     # EXPORT_NOT_QUOTED
     $checks{EXPORT_NOT_QUOTED} = {
-        severity    => $STERN,
+        severity    => 'ERROR',
         shells      => \@all_shells,
         description => q{Export behaves differently depending on the shell }
           . q{(e.g., 'a="A B"; export b=$a' exports b as "A B" on}
@@ -530,7 +530,7 @@ sub initialize_checks {
 
     # BASHISH_TEST
     $checks{BASHISH_TEST} = {
-        severity    => $STERN,
+        severity    => 'ERROR',
         shells      => [ 'POSIX' ],
         description => q{The "[[" test keyword is reserved by POSIX, }
           . q{but not defined. Use "test" or "[" instead},
@@ -549,7 +549,7 @@ sub initialize_checks {
 
     # REDIR
     $checks{REDIR} = {
-        severity => $STERN,
+        severity => 'ERROR',
         shells   => [ 'POSIX' ],
         description =>
           q{The &>FILE redirection syntax is not part of POSIX, use >FILE 2>&1 instead},
@@ -568,7 +568,7 @@ sub initialize_checks {
 
     # DOLLAR_BRACKET
     $checks{DOLLAR_BRACKET} = {
-        severity => $STERN,
+        severity => 'ERROR',
         shells   => [ 'POSIX' ],
         description =>
           q{The $[EXPRESSION] syntax is completely replaced by the }
@@ -588,7 +588,7 @@ sub initialize_checks {
 
     # BACKTICKS
     $checks{BACKTICKS} = {
-        severity    => $GENTLE,
+        severity    => 'ERROR',
         shells      => [ 'BOURNE' ],
         description => q{Bourne shell does not support the POSIX-form}
           . q{ $(COMMANDS), use `COMMANDS` instead.},
@@ -607,7 +607,7 @@ sub initialize_checks {
 
     # FUNCTION
     $checks{FUNCTION} = {
-        severity    => $STERN,
+        severity    => 'ERROR',
         shells      => [ 'POSIX' ],
         description => q{The "function NAME" form of the function definition is}
           . q{ ksh-specific simply use "NAME()" to define a function.},
@@ -626,7 +626,7 @@ sub initialize_checks {
 
     # LET
     $checks{LET} = {
-        severity => $HARSH,
+        severity => 'ERROR',
         shells   => [ 'POSIX' ],
         description =>
           q{"let" is ksh-specific, use the $((...)) POSIX form instead.}
@@ -645,7 +645,7 @@ sub initialize_checks {
 
     # BOURNE_ARITH
     $checks{BOURNE_ARITH} = {
-        severity => $HARSH,
+        severity => 'ERROR',
         shells   => [ 'BOURNE' ],
         description =>
           q{$((...)) is POSIX but not Bourne}
@@ -664,7 +664,7 @@ sub initialize_checks {
 
     # RANDOM
     $checks{RANDOM} = {
-        severity => $STERN,
+        severity => 'ERROR',
         shells   => [ 'BOURNE', 'CSH', 'POSIX', 'TCSH', ],
         description =>
           q{$RANDOM is bash/ksh/zsh specific. Use awk's rand() for randomness.},
@@ -683,7 +683,7 @@ sub initialize_checks {
 
     # SECONDS
     $checks{SECONDS} = {
-        severity => $STERN,
+        severity => 'ERROR',
         shells   => [ 'BOURNE', 'CSH', 'POSIX', 'TCSH', ],
         description =>
           q{Avoid $SECONDS: is bash/ksh/zsh specific.},
@@ -702,7 +702,7 @@ sub initialize_checks {
 
     # SELECT
     $checks{SELECT} = {
-        severity => $STERN,
+        severity => 'ERROR',
         shells   => [ 'BOURNE', 'CSH', 'POSIX', 'TCSH', ],
         description =>
           q{"select" is ksh, bash and zsh specific. Use printd and read instead.},
@@ -721,7 +721,7 @@ sub initialize_checks {
 
     # TILDE
     $checks{TILDE} = {
-        severity => $STERN,
+        severity => 'ERROR',
         shells   => [ 'BOURNE', ],
         description =>
           q{Bourne shell does not provile tilde expansion},
@@ -740,7 +740,7 @@ sub initialize_checks {
 
     # UNSET
     $checks{UNSET} = {
-        severity => $BRUTAL,
+        severity => 'ERROR',
         shells   => [ 'BOURNE', ],
         description =>
           q{unset is not supported by every Bash shell},
@@ -759,7 +759,7 @@ sub initialize_checks {
 
     # COMMAND
     $checks{COMMAND} = {
-        severity => $GENTLE,
+        severity => 'ERROR',
         shells   => [ 'BOURNE', ],
         description =>
           q{command is not supported by Bourne shell},
@@ -778,7 +778,7 @@ sub initialize_checks {
 
     # ALIAS
     $checks{ALIAS} = {
-        severity => $GENTLE,
+        severity => 'ERROR',
         shells   => [ 'BOURNE', ],
         description =>
           q{alias is not supported by Bourne shell},
@@ -797,7 +797,7 @@ sub initialize_checks {
 
     # READONLY
     $checks{READONLY} = {
-        severity => $GENTLE,
+        severity => 'ERROR',
         shells   => [ 'BOURNE', ],
         description =>
           q{readonly is not supported by Bourne shell},
@@ -816,7 +816,7 @@ sub initialize_checks {
 
     # DOLLAR_Q
     $checks{DOLLAR_Q} = {
-        severity => $GENTLE,
+        severity => 'ERROR',
         shells   => [ grep { ($_ ne 'KSH') && ($_ ne 'BASH') && ($_ ne 'ZSH') } @all_shells, ],
         description =>
           q{$'...' is ksh93, bash and zsh specific, use printf %b instead},
@@ -835,7 +835,7 @@ sub initialize_checks {
 
     # EXPORT_ASSIGN
     $checks{EXPORT_ASSIGN} = {
-        severity => $STERN,
+        severity => 'ERROR',
         shells   => [ 'BOURNE' ],
         description =>
           q{Though POSIX allows it, bourne shell don't want the assignment}
@@ -861,7 +861,7 @@ sub initialize_checks {
     # Sun's coding conventions suggest 80 columns, the majority of the Linux kernel
     # is formatted to fit in 80 columns -> let's skipt to 80 (VT-100)
     $checks{LONG_LINES} = {
-        severity => $CRUEL,
+        severity => 'INFO',
         shells   => [ 'POSIX' ],
         description =>
           q{Line is longer than 80 characters, consider splitting it over}
@@ -902,14 +902,12 @@ Getopt::Long::Configure( 'bundling', 'no_ignore_case' );
 $getopt_result = GetOptions(
 
     # severity levels
-    '1|brutal' => sub { $severity = 1; },
-    '2|cruel'  => sub { $severity = 2; },
-    '3|harsh'  => sub { $severity = 3; },
-    '4|stern'  => sub { $severity = 4; },
-    '5|gentle' => sub { $severity = 5; },
-    'severity' => \$severity,
+    '0|info'     => sub { $severity_level = 0; },
+    '1|cosmetic' => sub { $severity_level = 1; },
+    '2|error'    => sub { $severity_level = 2; },
+    'severity'   => \$severity_level,
 
-    'list|l:s' => \$list_format,    # optional string
+    'list|l:s'   => \$list_format,    # optional string
 
     'color|colour!' => \$color,     # can be negated
 
@@ -1008,9 +1006,9 @@ C<bashcritic> - critiques shell scripts
 
 =head1 SYNOPSIS
 
-  bashcritic [-12345 | --brutal | --cruel | --harsh | --stern | --gentle]
+  bashcritic [-012 | --info | --cosmetic | --error]
              [--posix | --bourne]
-             [--severity number | name]
+             [--severity number]
              [--list [format]]
              [-verbose ]
              {FILE | STDIN}
