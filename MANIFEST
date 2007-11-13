@@ -1,5 +1,6 @@
 AUTHORS
 bashcritic
+bashcritic.spec
 Changes
 inc/Module/AutoInstall.pm
 inc/Module/Install.pm
@@ -13,6 +14,7 @@ inc/Module/Install/Metadata.pm
 inc/Module/Install/Scripts.pm
 inc/Module/Install/Win32.pm
 inc/Module/Install/WriteAll.pm
+inc/version.pm
 INSTALL
 LICENSE
 Makefile.PL
@@ -20,5 +22,6 @@ MANIFEST			This list of files
 META.yml
 NEWS
 README
+tests/comments_and_strings.sh
+tests/README
 TODO
-bashcritic.spec
