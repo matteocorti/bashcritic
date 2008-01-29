@@ -4,12 +4,12 @@ To do
 Programming
 ===========
 
+* plug-in model:
+  * put rules in files?
+
 * detect the type of the shell by the shebang
 
 * sort the checks hash by severity? description? in the listing
-
-* plug-in model:
-  * put rules in files?
 
 Check for
 =========

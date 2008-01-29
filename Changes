@@ -1,3 +1,7 @@
+2008-01-29  Matteo Corti  <matteo.corti@id.ethz.ch>
+
+	* bashcritic:  checks if the shebang is longer than 32 bytes
+
 2007-12-07  Matteo Corti  <matteo.corti@id.ethz.ch>
 
 	* bashcritic: automatic detection of the shell from the shebang
