@@ -57,7 +57,7 @@ my @warnings;
 # command line options
 my $bourne         = 0;    # Bourne shell compatibility
 my $color          = 1;    # colorize output (default)
-my $ignore_shebang = 0l    # ignore shebang
+my $ignore_shebang = 0;    # ignore shebang
 my $list_format;
 my $posix          = 1;    # POSIX compatibility (default)
 my $severity_level = 2;    # severity level (default 1)
@@ -822,6 +822,27 @@ q{"select" is ksh, bash and zsh specific. Use printd and read instead.},
         return;
     };
 
+    # SHEBANG_LENGTH
+    # see http://www.in-ulm.de/~mascheck/various/shebang/
+
+    $checks{SHEBANG_LENGTH} = {
+        severity =>  'ERROR',
+        shells   => @all_shells,
+        description =>
+            q{Some (older) systems do not allow shebangs longer than 32 bytes},
+    };
+    $checks{SHEBANG_LENGTH}{function} = sub {
+        my $file  = shift;
+        my @lines = @_;
+        if ( length $lines[0] > 32 ) {
+            issue_warning(
+                $checks{SHEBANG_LENGTH}{severity},
+                $file, 0, $checks{SHEBANG_LENGTH}{description},
+            );
+        }
+        return;
+    }
+    
     ############
     # Formatting
     
