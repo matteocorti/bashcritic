@@ -1,3 +1,14 @@
+2008-01-30 Alpha version 0.3.2 (0.3.1 was never released)
+           * usage documentation
+           * removed the perlcritic outputlevels: we now have
+             error, cosmetic and info only
+           * detects the shell from the shebang
+           * new checks
+             - checks the shebang length
+             - checks for $'...'
+             - checks for command alias and readonly in Bourne shell
+           * version.pm is included in the distribution (since it is needed
+             by Makefile.PL)
 2007-10-20 Alpha version 0.3.0
            * rules are not checked in comments and strings
            * warnings are no more grouped by type but sorted by line number

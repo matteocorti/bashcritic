@@ -169,12 +169,13 @@ sub perform_checks {
 
     my $shebang = get_shebang($file);
 
-    if (defined $shebang) {
+    if ( defined $shebang ) {
+
         # add the current shell to the list (temporarily
         # since it applies only to current file)
         push @shells, $shebang;
     }
-    
+
     # file content
     my @file_lines = pre_process_file($file);
 
@@ -197,10 +198,10 @@ sub perform_checks {
         }
     }
 
-    if (defined $shebang) {
+    if ( defined $shebang ) {
         pop @shells;
     }
-    
+
     return;
 }
 
@@ -229,7 +230,7 @@ sub list_checks {
     # sort by severity and then by message
     for my $name (
         sort {
-                 ${ $checks{$b} }{severity}    cmp ${ $checks{$a} }{severity}
+                 ${ $checks{$b} }{severity} cmp ${ $checks{$a} }{severity}
               || ${ $checks{$a} }{description} cmp ${ $checks{$b} }{description}
         }
         keys %checks
@@ -463,7 +464,7 @@ sub pre_process_file {
             }
 
             if (
-                $char[$i] eq q{"} &&    # we found a '
+                $char[$i] eq q{"} &&    # we found a "
                 !escaped( $i, @char )   # that is not escaped
               )
             {
@@ -825,31 +826,34 @@ q{"select" is ksh, bash and zsh specific. Use printd and read instead.},
     # SHEBANG_LENGTH
     # see http://www.in-ulm.de/~mascheck/various/shebang/
 
-    $checks{SHEBANG_LENGTH} = {
-        severity =>  'ERROR',
-        shells   => @all_shells,
-        description =>
-            q{Some (older) systems do not allow shebangs longer than 32 bytes},
-    };
-    $checks{SHEBANG_LENGTH}{function} = sub {
-        my $file  = shift;
-        my @lines = @_;
-        if ( length $lines[0] > 32 ) {
-            issue_warning(
-                $checks{SHEBANG_LENGTH}{severity},
-                $file, 0, $checks{SHEBANG_LENGTH}{description},
-            );
-        }
-        return;
+    if ( !$ignore_shebang ) {
+
+        $checks{SHEBANG_LENGTH} = {
+            severity => 'ERROR',
+            shells   => @all_shells,
+            description =>
+q{Some (older) systems do not allow shebangs longer than 32 bytes},
+        };
+        $checks{SHEBANG_LENGTH}{function} = sub {
+            my $file  = shift;
+            my @lines = @_;
+            if ( length $lines[0] > 32 ) {
+                issue_warning(
+                    $checks{SHEBANG_LENGTH}{severity},
+                    $file, 0, $checks{SHEBANG_LENGTH}{description},
+                );
+            }
+            return;
+          }
     }
-    
+
     ############
     # Formatting
-    
-    # LONG_LINES
-    #
-    # Sun's coding conventions suggest 80 columns, the majority of the Linux kernel
-    # is formatted to fit in 80 columns -> let's skipt to 80 (VT-100)
+
+ # LONG_LINES
+ #
+ # Sun's coding conventions suggest 80 columns, the majority of the Linux kernel
+ # is formatted to fit in 80 columns -> let's skipt to 80 (VT-100)
     $checks{LONG_LINES} = {
         severity => 'INFO',
         shells   => ['POSIX'],
@@ -895,10 +899,10 @@ $getopt_result = GetOptions(
     '2|error'    => sub { $severity_level = 2; },
     'severity' => \$severity_level,
 
-    'list|l:s' => \$list_format,          # optional string
+    'list|l:s' => \$list_format,    # optional string
 
-    'color|colour!'  => \$color,          # can be negated
-    'ignore-shebang' => \$ignore_shebang; # ignore the script shebang
+    'color|colour!'  => \$color,             # can be negated
+    'ignore-shebang' => \$ignore_shebang,    # ignore the script shebang
 
     # shells
     'bourne!' => \$bourne,
@@ -1003,12 +1007,24 @@ C<bashcritic> - critiques shell scripts
              [-verbose ]
              {FILE | STDIN}
 
-  options:
+  Options:
 
-  [ TODO ]
+    --error,-e,-0        report only errors
+    --cosmetic,-c,-1     report errors and cosmetic problems
+    --info,-i,2          report error, cosmetic problems and minor issues
 
-  possible listing formats
-  - trac    for the trac twiki
+    --posix              script should be POSIX compliant
+    --bourne             script should be Bourne shell compatible
+
+    --list [format]      lists implemented tests (formats: trac)
+
+    --ignore-shebang     ignores the script shebang
+    --[no-]color         colorize output
+
+    --help,-h,-?         prints this help message
+        
+    --verbose,-v         increase verbosity
+    --version,-V         prints program version and exits
 
 =head1 DESCRIPTION
 
@@ -1023,6 +1039,28 @@ Version 0.3.2
 none
 
 =head1 OPTIONS
+
+--error,-e,-0        report only errors
+
+--cosmetic,-c,-1     report errors and cosmetic problems
+
+--info,-i,2          report error, cosmetic problems and minor issues
+
+--posix              script should be POSIX compliant
+
+--bourne             script should be Bourne shell compatible
+
+--list [format]      lists implemented tests (formats: trac)
+
+--ignore-shebang     ignores the script shebang
+
+--[no-]color         colorize output
+
+--help,-h,-?         prints this help message
+
+--verbose,-v         increase verbosity
+
+--version,-V         prints program version and exits
 
 =head1 USAGE EXAMPLES
 
