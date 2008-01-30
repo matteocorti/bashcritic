@@ -15,7 +15,7 @@ url:       http://trac.id.ethz.ch/projects/bashcritic
 buildroot: %{_tmppath}/%{name}-%{version}-%(id -u -n)
 buildarch: noarch
 prefix:    %(echo %{_prefix})
-source:    bashcritic-0.3.0.tar.gz
+source:    %{name}-%{version}.tar.gz
 
 %description
 bashcritic is a tool to check shell scripts for common pitfalls
