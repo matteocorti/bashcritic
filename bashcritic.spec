@@ -5,7 +5,7 @@
 
 name:      bashcritic
 summary:   bashcritic - is a tool to check shell scripts for common pitfalls
-version:   0.3.2
+version:   0.3.3
 release:   0
 vendor:    Matteo Corti <matteo.corti@id.ethz.ch>
 packager:  Matteo Corti <matteo.corti@id.ethz.ch>
@@ -111,6 +111,9 @@ find %{buildroot}%{_prefix}             \
 %defattr(-,root,root)
 
 %changelog
+* Thu Jan 31 2008 Matteo Corti <matteo.corti@id.ethz.ch> - 0.3.3-0
+- corrected a syntax error in a check rule
+
 * Wed Jan 30 2008 Matteo Corti <matteo.corti@id.ethz.ch> - 0.3.2-0
 - upgraded to 0.3.2
 

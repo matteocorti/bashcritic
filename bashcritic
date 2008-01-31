@@ -24,7 +24,7 @@ use strict;
 use warnings;
 use Carp;
 
-use version; our $VERSION = '0.3.2';
+use version; our $VERSION = '0.3.3';
 
 use Data::Dumper;
 use File::Slurp;
@@ -238,6 +238,7 @@ sub list_checks {
     {
 
         my $shells;
+
         for my $s ( @{ $checks{$name}{shells} } ) {
             if ( defined $shells ) {
                 $shells = "$shells, $s";
@@ -830,7 +831,7 @@ q{"select" is ksh, bash and zsh specific. Use printd and read instead.},
 
         $checks{SHEBANG_LENGTH} = {
             severity => 'ERROR',
-            shells   => @all_shells,
+            shells   => \@all_shells,
             description =>
 q{Some (older) systems do not allow shebangs longer than 32 bytes},
         };
@@ -1032,7 +1033,7 @@ critiques shell scripts
 
 =head1 VERSION
 
-Version 0.3.2
+Version 0.3.3
 
 =head1 REQUIRED ARGUMENTS
 
