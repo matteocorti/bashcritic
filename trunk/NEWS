@@ -1,3 +1,5 @@
+2008-01-31 Alpha version 0.3.3
+           * corrected a syntax error in a check rule
 2008-01-30 Alpha version 0.3.2 (0.3.1 was never released)
            * usage documentation
            * removed the perlcritic outputlevels: we now have
