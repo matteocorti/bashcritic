@@ -895,10 +895,10 @@ Getopt::Long::Configure( 'bundling', 'no_ignore_case' );
 $getopt_result = GetOptions(
 
     # severity levels
-    '0|info'     => sub { $severity_level = 0; },
-    '1|cosmetic' => sub { $severity_level = 1; },
-    '2|error'    => sub { $severity_level = 2; },
-    'severity' => \$severity_level,
+    '0|i|info'     => sub { $severity_level = 0; },
+    '1|c|cosmetic' => sub { $severity_level = 1; },
+    '2|e|error'    => sub { $severity_level = 2; },
+    'severity'     => \$severity_level,
 
     'list|l:s' => \$list_format,    # optional string
 

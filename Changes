@@ -1,3 +1,8 @@
+2008-02-18  Matteo Corti  <matteo.corti@id.ethz.ch>
+
+	* bashcritic: added mnemonics for error, info and cosmetic (where
+	only present in the POD)
+
 2008-01-31  Matteo Corti  <matteo.corti@id.ethz.ch>
 
 	* bashcritic: corrected a syntax error in a check rule
