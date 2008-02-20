@@ -316,7 +316,9 @@ sub check_pattern {
 
     for my $line (@lines) {
         $counter++;
+
         if ( $line =~ /$pattern/mx ) {
+
             issue_warning( $severity, $file, $counter, $message );
         }
     }
@@ -805,27 +807,41 @@ q{"select" is ksh, bash and zsh specific. Use printd and read instead.},
     $checks{DOLLAR_Q}{function} = sub {
         my $file = shift;
         check_pattern( $file, $checks{DOLLAR_Q}{severity},
-            q{\$'.*'}, $checks{DOLLAR_Q}{description}, @_, );
+            q{\\$'.*'}, $checks{DOLLAR_Q}{description}, @_, );
         return;
     };
 
     # DOLLAR_QQ
     $checks{DOLLAR_QQ} = {
         severity => 'ERROR',
-        shells   => [
-            grep { ( $_ ne 'KSH' ) && ( $_ ne 'BASH' ) }
-                @all_shells,
-        ],
+        shells => [ grep { ( $_ ne 'KSH' ) && ( $_ ne 'BASH' ) } @all_shells, ],
         description =>
-            'The $"..." localization is only supported by bash and ksh93',
+          'The $"..." localization is only supported by bash and ksh93',
     };
     $checks{DOLLAR_QQ}{function} = sub {
         my $file = shift;
         check_pattern( $file, $checks{DOLLAR_QQ}{severity},
-            '$".*"', $checks{DOLLAR_QQ}{description}, @_, );
-        return;     
+            '\$\".*\"', $checks{DOLLAR_QQ}{description}, @_, );
+        return;
     };
-        
+
+    # ECHO
+    $checks{ECHO} = {
+        severity    => 'ERROR',
+        shells      => \@all_shells,
+        description => 'echo is not portable if the arguments begin with "-"'
+          . ' or contain a backslash. '
+          . 'Use the POSIX recommended printf command instead',
+    };
+    $checks{ECHO}{function} = sub {
+        my $file = shift;
+        check_pattern( $file, $checks{ECHO}{severity},
+            q{echo\ *\-}, $checks{ECHO}{description}, @_, );
+        check_pattern( $file, $checks{ECHO}{severity},
+            q{echo.*\\\\}, $checks{ECHO}{description}, @_, );
+        return;
+    };
+
     # EXPORT_ASSIGN
     $checks{EXPORT_ASSIGN} = {
         severity => 'ERROR',
@@ -917,7 +933,7 @@ $getopt_result = GetOptions(
     '0|i|info'     => sub { $severity_level = 0; },
     '1|c|cosmetic' => sub { $severity_level = 1; },
     '2|e|error'    => sub { $severity_level = 2; },
-    'severity'     => \$severity_level,
+    'severity' => \$severity_level,
 
     'list|l:s' => \$list_format,    # optional string
 
