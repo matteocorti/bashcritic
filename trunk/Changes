@@ -1,6 +1,7 @@
 2008-02-20  Matteo Corti  <matteo.corti@id.ethz.ch>
 
 	* bashcritic: checks for $"..." in shells other than bash or ksh93
+	* bashcritic: checks for echo arguments beginning with - or containing a \
 
 2008-02-18  Matteo Corti  <matteo.corti@id.ethz.ch>
 
