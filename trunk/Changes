@@ -1,3 +1,7 @@
+2008-02-20  Matteo Corti  <matteo.corti@id.ethz.ch>
+
+	* bashcritic: checks for $"..." in shells other than bash or ksh93
+
 2008-02-18  Matteo Corti  <matteo.corti@id.ethz.ch>
 
 	* bashcritic: added mnemonics for error, info and cosmetic (where

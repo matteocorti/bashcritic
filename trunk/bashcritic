@@ -809,6 +809,23 @@ q{"select" is ksh, bash and zsh specific. Use printd and read instead.},
         return;
     };
 
+    # DOLLAR_QQ
+    $checks{DOLLAR_QQ} = {
+        severity => 'ERROR',
+        shells   => [
+            grep { ( $_ ne 'KSH' ) && ( $_ ne 'BASH' ) }
+                @all_shells,
+        ],
+        description =>
+            'The $"..." localization is only supported by bash and ksh93',
+    };
+    $checks{DOLLAR_QQ}{function} = sub {
+        my $file = shift;
+        check_pattern( $file, $checks{DOLLAR_QQ}{severity},
+            '$".*"', $checks{DOLLAR_QQ}{description}, @_, );
+        return;     
+    };
+        
     # EXPORT_ASSIGN
     $checks{EXPORT_ASSIGN} = {
         severity => 'ERROR',
@@ -851,10 +868,12 @@ q{Some (older) systems do not allow shebangs longer than 32 bytes},
     ############
     # Formatting
 
- # LONG_LINES
- #
- # Sun's coding conventions suggest 80 columns, the majority of the Linux kernel
- # is formatted to fit in 80 columns -> let's skipt to 80 (VT-100)
+    # LONG_LINES
+    #
+    # Sun's coding conventions suggest 80 columns,
+    # the majority of the Linux kernel
+    # is formatted to fit in 80 columns
+    # -> let's skipt to 80 (VT-100)
     $checks{LONG_LINES} = {
         severity => 'INFO',
         shells   => ['POSIX'],
