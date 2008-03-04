@@ -1,0 +1,1200 @@
+#!perl
+#
+# bashcritic is a tool to check shell scripts for common pitfalls
+#
+# See  the INSTALL file for installation instructions
+#
+# Copyright (c) 2007, ETH Zurich.
+#
+# This module is free software; you can redistribute it and/or modify it
+# under the terms of GNU general public license (gpl) version 3.
+# See the LICENSE file for details.
+#
+# RCS information
+# enable substitution with:
+#   $ svn propset svn:keywords "Id Revision HeadURL Source Date"
+#
+#   $Id$
+#   $Revision$
+#   $HeadURL$
+#   $Date$
+
+use 5.008;
+use strict;
+use warnings;
+use Carp;
+
+use version; our $VERSION = '0.3.3';
+
+use Data::Dumper;
+use File::Slurp;
+use English qw(-no_match_vars);
+use Getopt::Long;
+use Pod::Usage qw(pod2usage);
+use List::Util qw(first);
+use List::MoreUtils qw(any);
+
+##############################################################################
+# Configuration
+
+Getopt::Long::Configure( 'bundling', 'ignorecase', );
+
+##############################################################################
+# Global vars
+
+# Hash of hashes containing the checks to be perfomed
+# - name        : name of the check
+# - *           : anonymous hash with
+#   - severity    : the severity level of the check
+#   - shells      : list of shells where this applies
+#   - function    : the subrouting implementing the test
+#   - description : a short description
+my %checks;
+
+# array of warnings
+my @warnings;
+
+# command line options
+my $bourne         = 0;    # Bourne shell compatibility
+my $color          = 1;    # colorize output (default)
+my $ignore_shebang = 0;    # ignore shebang
+my $list_format;
+my $posix          = 1;    # POSIX compatibility (default)
+my $severity_level = 2;    # severity level (default 1)
+my $verbosity      = 0;    # verbose output
+
+my $getopt_result;
+
+my @all_shells = qw( BASH BOURNE CSH KSH POSIX TCSH ZSH );
+
+my @shells;
+
+# constants
+
+# severity levels
+my %severity = (
+    ERROR    => 2,
+    COSMETIC => 1,
+    INFO     => 0,
+);
+
+# according to sysexits on FreeBSD (should check if there is a CPAN module with exit codes
+my $EXIT_USAGE       = 64;
+my $EXIT_UNAVAILABLE = 69;
+
+my $NAME_PATTERN = '[A-Za-z0-9_]+';
+
+##############################################################################
+# Subroutines
+
+##############################################################################
+# Usage     : verbose("some message string", $optional_verbosity_level);
+# Purpose   : write a message if the verbosity level is high enough
+# Returns   : n/a
+# Arguments : message : message string
+#             level   : options verbosity level
+# Throws    : n/a
+# Comments  : n/a
+# See also  : n/a
+sub verbose {
+
+    # arguments
+    my $message = shift;
+    my $level   = shift;
+
+    if ( !defined $level ) {
+        $level = 0;
+    }
+
+    if ( $level < $verbosity ) {
+        print $message;
+    }
+
+    return;
+
+}
+
+##############################################################################
+# Usage     : get_shebang($filename)
+# Purpose   : detects the shell type from the shebang (if present)
+# Returns   : shell or undefined if shebang is not present
+# Arguments : file : name of the file to check
+# Throws    : n/a
+# Comments  : n/a
+# See also  : n/a
+sub get_shebang {
+
+    my $file = shift;
+
+    my $FH;
+
+    open $FH, q{<}, $file
+      or croak("Error: cannot open $file: $OS_ERROR\n");
+
+    while (<$FH>) {
+        if (/^\#\!(.*\/)?(.*)/mx) {
+
+            # shebang found: check if it is a known shell
+            # (shell constants are uppercase)
+            my $candidate = uc $2;
+
+            if ( any { /$candidate/mx } @all_shells ) {
+                verbose 'detected shell type ' . lc $candidate . "\n";
+                return $candidate;
+            }
+
+        }
+        last;
+    }
+
+    close $FH
+      or croak("Error: cannot close $file: $OS_ERROR\n");
+
+    # shell not found
+    return;
+
+}
+
+##############################################################################
+# Usage     : perform_checks($filename)
+# Purpose   : performs all the registered checks on the given filename
+# Returns   : n/a
+# Arguments : file : name of the file to check
+# Throws    : n/a
+# Comments  : n/a
+# See also  : n/a
+sub perform_checks {
+
+    my $file = shift;
+
+    my $shebang = get_shebang($file);
+
+    if ( defined $shebang ) {
+
+        # add the current shell to the list (temporarily
+        # since it applies only to current file)
+        push @shells, $shebang;
+    }
+
+    # file content
+    my @file_lines = pre_process_file($file);
+
+    verbose "checking $file\n";
+    for my $name ( keys %checks ) {
+        if ( $severity{ ${ $checks{$name} }{severity} } >= $severity_level ) {
+            my $perform = 0;
+            for my $shell ( @{ $checks{$name}{shells} } ) {
+                verbose "  should be checked for: $shell\n", 1;
+                $perform ||= any { /$shell/mx } @shells;
+            }
+
+            if ($perform) {
+                verbose '> checking rule: '
+                  . ${ $checks{$name} }{description}
+                  . "\n", 1;
+
+                &{ ${ $checks{$name} }{function} }( $file, @file_lines );
+            }
+        }
+    }
+
+    if ( defined $shebang ) {
+        pop @shells;
+    }
+
+    return;
+}
+
+##############################################################################
+# Usage     : list_checks() or list_checks($format)
+# Purpose   : list all the configured checks
+# Returns   : n/a
+# Arguments : $format (optional) a special formatting
+#             - trac
+# Throws    : n/a
+# Comments  : n/a
+# See also  : n/a
+sub list_checks {
+
+    my $format = shift;
+
+    if ( defined $format
+        && !any { /$format/mx } ('trac') )
+    {
+        pod2usage(
+            -message => "unknown list formatting '$format'",
+            -exitval => $EXIT_USAGE,
+        );
+    }
+
+    # sort by severity and then by message
+    for my $name (
+        sort {
+                 ${ $checks{$b} }{severity} cmp ${ $checks{$a} }{severity}
+              || ${ $checks{$a} }{description} cmp ${ $checks{$b} }{description}
+        }
+        keys %checks
+      )
+    {
+
+        my $shells;
+
+        for my $s ( @{ $checks{$name}{shells} } ) {
+            if ( defined $shells ) {
+                $shells = "$shells, $s";
+            }
+            else {
+                $shells = $s;
+            }
+        }
+
+        if ( $format eq 'trac' ) {
+
+            # || description || severity || shells ||
+
+            print q{||}
+              . ${ $checks{$name} }{description} . q{||}
+              . "${$checks{$name}}{severity}" . q{||}
+              . $shells . "||\n";
+
+        }
+        else {
+
+            # description (severity level) [ shells ]
+
+            print ${ $checks{$name} }{description}
+              . " (severity ${$checks{$name}}{severity}) ["
+              . $shells . "]\n";
+        }
+    }
+
+    return;
+}
+
+##############################################################################
+# Usage     : colorize_checks()
+# Purpose   : colorizes the checks according to severity
+# Returns   : n/a
+# Arguments : n/a
+# Throws    : n/a
+# Comments  : n/a
+# See also  : n/a
+sub colorize_checks {
+    for my $key ( keys %checks ) {
+        if ( $checks{$key}{severity} eq 'ERROR' ) {
+            $checks{$key}{description} =
+              Term::ANSIColor::colored( $checks{$key}{description},
+                'bold red' );
+        }
+        if ( $checks{$key}{severity} eq 'COSMETIC' ) {
+            $checks{$key}{description} =
+              Term::ANSIColor::colored( $checks{$key}{description}, 'yellow' );
+        }
+    }
+    return;
+}
+
+##############################################################################
+# Usage     : check_pattern($filename, $pattern, $message, @lines)
+# Purpose   : searches for the given pattern in the lines array and prints a
+#             message if found
+# Returns   : n/a
+# Arguments : $file     : name of the file to check
+#             $severity : problem severity
+#             $pattern  : the pattern to look for
+#             $message  : the warning message ('LINE_NUMBER' will be
+#                         substituted with the current line number)
+#             @lines    : array of lines of the given file
+# Throws    : n/a
+# Comments  : n/a
+# See also  : n/a
+sub check_pattern {
+
+    my ( $file, $severity, $pattern, $message, @lines ) = @_;
+
+    my $counter = 0;
+
+    for my $line (@lines) {
+        $counter++;
+
+        if ( $line =~ /$pattern/mx ) {
+
+            issue_warning( $severity, $file, $counter, $message );
+        }
+    }
+
+    return;
+
+}
+
+##############################################################################
+# Usage     : issue_warning($severity, $file, $line, $text)
+# Purpose   : stores a new warning in the warning array. The array is then
+#             sorted by severity
+# Returns   : n/a
+# Arguments : $severity : warning severity level
+#             $file     : file
+#             $line     : line number
+#             $text     : warining text
+# Throws    : n/a
+# Comments  : n/a
+# See also  : n/a
+sub issue_warning {
+
+    my ( $severity, $file, $line, $text ) = @_;
+
+    my $message = "Severity $severity at $file:$line: $text\n";
+
+    push @warnings, [ $line, $message ];
+
+    return;
+
+}
+
+##############################################################################
+# Usage     : escaped($position, @chars);
+# Purpose   : checks if the character at the given position is escaped
+# Returns   : true if the character at the given position is escaped
+# Arguments : $position : position in the array
+#             @chars    : array of characters
+# Throws    : n/a
+# Comments  : maybe an overkill but makes the code in pre_process_file more
+#             readable
+# See also  : n/a
+sub escaped {
+
+    my ( $position, @chars ) = @_;
+
+    return ( $position > 0 ) && ( $chars[ $position - 1 ] eq q{\\} );
+
+}
+
+##############################################################################
+# Usage     : @lines = pre_process_file($filename);
+#             $text  = pre_process_file($filename);
+# Purpose   : reads the given file and blanks comments and strings.
+#             We do not preserve strings even if they could be executed at
+#             a later point.
+#             We are blanking so that we keep the very same file structure
+#             (position in the file)
+# Returns   : an array with the source file lines or a string with the whole
+#             file if called in scalar context
+# Arguments : $filename : name of the file to check
+# Throws    : n/a
+# Comments  : n/a
+# See also  : n/a
+sub pre_process_file {
+
+    my $filename = shift;
+
+    # we do the processing on the whole file and we split it later
+
+    my $text = read_file($filename);
+
+    # blanking (this seems highly inefficient but will do for the moment)
+    my $i = 0;
+    my @char = split //mx, $text;
+
+    # status variables
+    my $comment   = 0;
+    my $q_string  = 0;
+    my $qq_string = 0;
+
+    while ( $i < @char ) {
+
+        if ($comment) {
+
+            # we are inside a comment
+
+            if ( $char[$i] eq "\n" ) {    # EOL
+                $comment = 0;
+            }
+            else {
+                $char[$i] = q{ };
+            }
+
+        }
+        elsif ($q_string) {
+
+            # we are inside a single quoted string
+
+            if (
+                $char[$i] eq q{'} &&    # we found a '
+                !escaped( $i, @char )   # that is not escaped
+              )
+            {
+                $q_string = 0;
+            }
+            else {
+                $char[$i] = q{ };
+            }
+
+        }
+        elsif ($qq_string) {
+
+            # we are inside a double quoted string
+
+            if (
+                $char[$i] eq q{"} &&    # we found a "
+                !escaped( $i, @char )   # that is not escaped
+              )
+            {
+                $qq_string = 0;
+            }
+            else {
+                $char[$i] = q{ };
+            }
+
+        }
+        else {
+
+            # code
+
+            if (
+                $char[$i] eq q{#} &&    # we found a #
+                !escaped( $i, @char )   # that is not escaped
+              )
+            {
+                $comment = 1;
+            }
+
+            if (
+                $char[$i] eq q{'} &&    # we found a '
+                !escaped( $i, @char )   # that is not escaped
+              )
+            {
+                $q_string = 1;
+            }
+
+            if (
+                $char[$i] eq q{"} &&    # we found a "
+                !escaped( $i, @char )   # that is not escaped
+              )
+            {
+                $qq_string = 1;
+            }
+
+        }
+
+        $i++;
+
+    }
+
+    $text = join q{}, @char;
+
+    if (wantarray) {
+        return split /\n/mx, $text;
+    }
+    else {
+        return $text;
+    }
+
+}
+
+##############################################################################
+# Usage     : initialize_checks()
+# Purpose   : initializes the checks hash
+# Returns   : n/a
+# Arguments : n/a
+# Throws    : n/a
+# Comments  : n/a
+# See also  : n/a
+sub initialize_checks {
+
+    # fill in names severities and descriptions first (functions
+    # will be inserted later so that they can use these fields in the
+    # definition
+
+    # SOURCE
+    $checks{SOURCE} = {
+        severity    => 'ERROR',
+        shells      => ['POSIX'],
+        description => '"source FILE" is not portable use ". FILE" instead.',
+    };
+    $checks{SOURCE}{function} = sub {
+        my $file = shift;
+        check_pattern( $file, $checks{SOURCE}{severity},
+            'source\ ', $checks{SOURCE}{description}, @_, );
+        return;
+    };
+
+    # DECLARE
+    $checks{DECLARE} = {
+        severity => 'ERROR',
+        shells   => ['POSIX'],
+        description =>
+q{"declare keyword" is not portable use subshells (...) or $(...) to define}
+          . q{ local variables (or variables with special attributes).},
+    };
+    $checks{DECLARE}{function} = sub {
+        my $file = shift;
+        check_pattern( $file, $checks{DECLARE}{severity},
+            'declare\ ', $checks{DECLARE}{description}, @_, );
+        return;
+    };
+
+    # TYPESET
+    $checks{TYPESET} = {
+        severity => 'ERROR',
+        shells   => ['POSIX'],
+        description =>
+'"typeset keyword" is not portable use subshells (...) or $(...) to define'
+          . ' local variables (or variables with special attributes).',
+    };
+    $checks{TYPESET}{function} = sub {
+        my $file = shift;
+        check_pattern( $file, $checks{TYPESET}{severity},
+            'typeset\ ', $checks{TYPESET}{description}, @_, );
+        return;
+    };
+
+    # HERE_STRING
+    $checks{HERE_STRING} = {
+        severity => 'ERROR',
+        shells   => \@all_shells,
+        description =>
+          'Avoid here-strings (a special form of the here-document)'
+          . ' in portable scripts.',
+    };
+    $checks{HERE_STRING}{function} = sub {
+        my $file = shift;
+        check_pattern( $file, $checks{HERE_STRING}{severity},
+            '<<<', $checks{HERE_STRING}{description}, @_, );
+        return;
+    };
+
+    # EXPORT_NOT_QUOTED
+    $checks{EXPORT_NOT_QUOTED} = {
+        severity    => 'ERROR',
+        shells      => \@all_shells,
+        description => q{Export behaves differently depending on the shell }
+          . q{(e.g., 'a="A B"; export b=$a' exports b as "A B" on}
+          . q{ bash AT&T ksh making them non-POSIX compliant},
+    };
+    $checks{EXPORT_NOT_QUOTED}{function} = sub {
+        my $file = shift;
+        check_pattern(
+            $file,
+            $checks{EXPORT_ASSIGN}{severity},
+            'export\ .*=\ *[^"]',
+            $checks{EXPORT_ASSIGN}{description}, @_,
+        );
+        return;
+    };
+
+    # BASHISH_TEST
+    $checks{BASHISH_TEST} = {
+        severity    => 'ERROR',
+        shells      => ['POSIX'],
+        description => q{The "[[" test keyword is reserved by POSIX, }
+          . q{but not defined. Use "test" or "[" instead},
+    };
+    $checks{BASHISH_TEST}{function} = sub {
+        my $file = shift;
+        check_pattern(
+            $file,
+            $checks{BASHISH_TEST}{severity},
+            '\[\[\ .*\ \]\]',
+            $checks{BASHISH_TEST}{description}, @_,
+        );
+        return;
+    };
+
+    # REDIR
+    $checks{REDIR} = {
+        severity => 'ERROR',
+        shells   => ['POSIX'],
+        description =>
+q{The &>FILE redirection syntax is not part of POSIX, use >FILE 2>&1 instead},
+    };
+    $checks{REDIR}{function} = sub {
+        my $file = shift;
+        check_pattern( $file, $checks{REDIR}{severity},
+            '&>', $checks{REDIR}{description}, @_, );
+        return;
+    };
+
+    # DOLLAR_BRACKET
+    $checks{DOLLAR_BRACKET} = {
+        severity => 'ERROR',
+        shells   => ['POSIX'],
+        description =>
+          q{The $[EXPRESSION] syntax is completely replaced by the }
+          . q{POSIX-conform arithmetic expansion $((EXPRESSION)).},
+    };
+    $checks{DOLLAR_BRACKET}{function} = sub {
+        my $file = shift;
+        check_pattern( $file, $checks{DOLLAR_BRACKET}{severity},
+            '\$\[.*\]', $checks{DOLLAR_BRACKET}{description}, @_, );
+        return;
+    };
+
+    # BACKTICKS
+    $checks{BACKTICKS} = {
+        severity    => 'ERROR',
+        shells      => ['BOURNE'],
+        description => q{Bourne shell does not support the POSIX-form}
+          . q{ $(COMMANDS), use `COMMANDS` instead.},
+    };
+    $checks{BACKTICKS}{function} = sub {
+        my $file = shift;
+        check_pattern( $file, $checks{BACKTICKS}{severity},
+            '\$\(.*\)', $checks{BACKTICKS}{description}, @_, );
+        return;
+    };
+
+    # FUNCTION
+    $checks{FUNCTION} = {
+        severity    => 'ERROR',
+        shells      => ['POSIX'],
+        description => q{The "function NAME" form of the function definition is}
+          . q{ ksh-specific simply use "NAME()" to define a function.},
+    };
+    $checks{FUNCTION}{function} = sub {
+        my $file = shift;
+        check_pattern(
+            $file,
+            $checks{FUNCTION}{severity},
+            'function\ *' . $NAME_PATTERN . '\ *{',
+            $checks{FUNCTION}{description}, @_,
+        );
+        return;
+    };
+
+    # LET
+    $checks{LET} = {
+        severity => 'ERROR',
+        shells   => ['POSIX'],
+        description =>
+          q{"let" is ksh-specific, use the $((...)) POSIX form instead.}
+    };
+    $checks{LET}{function} = sub {
+        my $file = shift;
+        check_pattern( $file, $checks{LET}{severity},
+            'let\ ', $checks{LET}{description}, @_, );
+        return;
+    };
+
+    # BOURNE_ARITH
+    $checks{BOURNE_ARITH} = {
+        severity    => 'ERROR',
+        shells      => ['BOURNE'],
+        description => q{$((...)) is POSIX but not Bourne}
+    };
+    $checks{BOURNE_ARITH}{function} = sub {
+        my $file = shift;
+        check_pattern( $file, $checks{BOURNE_ARITH}{severity},
+            '\$\(\(.*\))', $checks{BOURNE_ARITH}{description}, @_, );
+        return;
+    };
+
+    # RANDOM
+    $checks{RANDOM} = {
+        severity => 'ERROR',
+        shells   => [ 'BOURNE', 'CSH', 'POSIX', 'TCSH', ],
+        description =>
+          q{$RANDOM is bash/ksh/zsh specific. Use awk's rand() for randomness.},
+    };
+    $checks{RANDOM}{function} = sub {
+        my $file = shift;
+        check_pattern( $file, $checks{RANDOM}{severity},
+            '\$RANDOM', $checks{RANDOM}{description}, @_, );
+        return;
+    };
+
+    # SECONDS
+    $checks{SECONDS} = {
+        severity    => 'ERROR',
+        shells      => [ 'BOURNE', 'CSH', 'POSIX', 'TCSH', ],
+        description => q{Avoid $SECONDS: is bash/ksh/zsh specific.},
+    };
+    $checks{SECONDS}{function} = sub {
+        my $file = shift;
+        check_pattern( $file, $checks{SECONDS}{severity},
+            '\$SECONDS', $checks{SECONDS}{description}, @_, );
+        return;
+    };
+
+    # SELECT
+    $checks{SELECT} = {
+        severity => 'ERROR',
+        shells   => [ 'BOURNE', 'CSH', 'POSIX', 'TCSH', ],
+        description =>
+q{"select" is ksh, bash and zsh specific. Use printd and read instead.},
+    };
+    $checks{SELECT}{function} = sub {
+        my $file = shift;
+        check_pattern( $file, $checks{SELECT}{severity},
+            '\$SELECT', $checks{SELECT}{description}, @_, );
+        return;
+    };
+
+    # TILDE
+    $checks{TILDE} = {
+        severity    => 'ERROR',
+        shells      => [ 'BOURNE', ],
+        description => q{Bourne shell does not provile tilde expansion},
+    };
+    $checks{TILDE}{function} = sub {
+        my $file = shift;
+        check_pattern( $file, $checks{TILDE}{severity},
+            '\ ~', $checks{TILDE}{description}, @_, );
+        return;
+    };
+
+    # UNSET
+    $checks{UNSET} = {
+        severity    => 'ERROR',
+        shells      => [ 'BOURNE', ],
+        description => q{unset is not supported by every Bash shell},
+    };
+    $checks{UNSET}{function} = sub {
+        my $file = shift;
+        check_pattern( $file, $checks{UNSET}{severity},
+            'unset\ ', $checks{UNSET}{description}, @_, );
+        return;
+    };
+
+    # COMMAND
+    $checks{COMMAND} = {
+        severity    => 'ERROR',
+        shells      => [ 'BOURNE', ],
+        description => q{command is not supported by Bourne shell},
+    };
+    $checks{COMMAND}{function} = sub {
+        my $file = shift;
+        check_pattern( $file, $checks{COMMAND}{severity},
+            'command\ ', $checks{COMMAND}{description}, @_, );
+        return;
+    };
+
+    # ALIAS
+    $checks{ALIAS} = {
+        severity    => 'ERROR',
+        shells      => [ 'BOURNE', ],
+        description => q{alias is not supported by Bourne shell},
+    };
+    $checks{ALIAS}{function} = sub {
+        my $file = shift;
+        check_pattern( $file, $checks{ALIAS}{severity},
+            'alias\ ', $checks{ALIAS}{description}, @_, );
+        return;
+    };
+
+    # READONLY
+    $checks{READONLY} = {
+        severity    => 'ERROR',
+        shells      => [ 'BOURNE', ],
+        description => q{readonly is not supported by Bourne shell},
+    };
+    $checks{READONLY}{function} = sub {
+        my $file = shift;
+        check_pattern( $file, $checks{READONLY}{severity},
+            'readonly\ ', $checks{READONLY}{description}, @_, );
+        return;
+    };
+
+    # DOLLAR_Q
+    $checks{DOLLAR_Q} = {
+        severity => 'ERROR',
+        shells   => [
+            grep { ( $_ ne 'KSH' ) && ( $_ ne 'BASH' ) && ( $_ ne 'ZSH' ) }
+              @all_shells,
+        ],
+        description =>
+          q{$'...' is ksh93, bash and zsh specific, use printf %b instead},
+    };
+    $checks{DOLLAR_Q}{function} = sub {
+        my $file = shift;
+        check_pattern( $file, $checks{DOLLAR_Q}{severity},
+            q{\\$'.*'}, $checks{DOLLAR_Q}{description}, @_, );
+        return;
+    };
+
+    # DOLLAR_QQ
+    $checks{DOLLAR_QQ} = {
+        severity => 'ERROR',
+        shells => [ grep { ( $_ ne 'KSH' ) && ( $_ ne 'BASH' ) } @all_shells, ],
+        description =>
+          'The $"..." localization is only supported by bash and ksh93',
+    };
+    $checks{DOLLAR_QQ}{function} = sub {
+        my $file = shift;
+        check_pattern( $file, $checks{DOLLAR_QQ}{severity},
+            '\$\".*\"', $checks{DOLLAR_QQ}{description}, @_, );
+        return;
+    };
+
+    # ECHO
+    $checks{ECHO} = {
+        severity    => 'ERROR',
+        shells      => \@all_shells,
+        description => 'echo is not portable if the arguments begin with "-"'
+          . ' or contain a backslash. '
+          . 'Use the POSIX recommended printf command instead',
+    };
+    $checks{ECHO}{function} = sub {
+        my $file = shift;
+        check_pattern( $file, $checks{ECHO}{severity},
+            q{echo\ *\-}, $checks{ECHO}{description}, @_, );
+        check_pattern( $file, $checks{ECHO}{severity},
+            q{echo.*\\\\}, $checks{ECHO}{description}, @_, );
+        return;
+    };
+
+    # EXPORT_ASSIGN
+    $checks{EXPORT_ASSIGN} = {
+        severity => 'ERROR',
+        shells   => ['BOURNE'],
+        description =>
+          q{Though POSIX allows it, bourne shell don't want the assignment}
+          . ' and the exporting in one command.',
+    };
+    $checks{EXPORT_ASSIGN}{function} = sub {
+        my $file = shift;
+        check_pattern( $file, $checks{EXPORT_ASSIGN}{severity},
+            'export\ .*=', $checks{EXPORT_ASSIGN}{description}, @_, );
+        return;
+    };
+
+    # SHEBANG_LENGTH
+    # see http://www.in-ulm.de/~mascheck/various/shebang/
+
+    if ( !$ignore_shebang ) {
+
+        $checks{SHEBANG_LENGTH} = {
+            severity => 'ERROR',
+            shells   => \@all_shells,
+            description =>
+q{Some (older) systems do not allow shebangs longer than 32 bytes},
+        };
+        $checks{SHEBANG_LENGTH}{function} = sub {
+            my $file  = shift;
+            my @lines = @_;
+            if ( length $lines[0] > 32 ) {
+                issue_warning(
+                    $checks{SHEBANG_LENGTH}{severity},
+                    $file, 0, $checks{SHEBANG_LENGTH}{description},
+                );
+            }
+            return;
+          }
+    }
+
+    ############
+    # Formatting
+
+    # LONG_LINES
+    #
+    # Sun's coding conventions suggest 80 columns,
+    # the majority of the Linux kernel
+    # is formatted to fit in 80 columns
+    # -> let's skipt to 80 (VT-100)
+    $checks{LONG_LINES} = {
+        severity => 'INFO',
+        shells   => ['POSIX'],
+        description =>
+          q{Line is longer than 80 characters, consider splitting it over}
+          . q{ multiple lines to increase readability.},
+    };
+    $checks{LONG_LINES}{function} = sub {
+        my $file    = shift;
+        my @lines   = @_;
+        my $counter = 0;
+        for my $line (@lines) {
+            $counter++;
+            if ( length $line > 81 ) {
+                issue_warning(
+                    $checks{LONG_LINES}{severity},
+                    $file, $counter, $checks{LONG_LINES}{description},
+                );
+            }
+        }
+        return;
+    };
+
+    return;
+
+}
+
+##############################################################################
+# Main
+
+initialize_checks();
+
+############################
+# Parse command line options
+
+Getopt::Long::Configure( 'bundling', 'no_ignore_case' );
+
+$getopt_result = GetOptions(
+
+    # severity levels
+    '0|i|info'     => sub { $severity_level = 0; },
+    '1|c|cosmetic' => sub { $severity_level = 1; },
+    '2|e|error'    => sub { $severity_level = 2; },
+    'severity' => \$severity_level,
+
+    'list|l:s' => \$list_format,    # optional string
+
+    'color|colour!'  => \$color,             # can be negated
+    'ignore-shebang' => \$ignore_shebang,    # ignore the script shebang
+
+    # shells
+    'bourne!' => \$bourne,
+    'posix!'  => \$posix,
+
+    'help|h|?'   => sub { pod2usage(); },
+    'verbose|v+' => \$verbosity,
+    'version|V' => sub { print "bashcritic version $VERSION\n"; exit 0; },
+
+) or pod2usage();
+
+if ( defined $list_format ) {
+    list_checks($list_format);
+    exit 0;
+}
+
+##############################
+# Parse command line arguments
+
+my @FILES = ();
+
+if ( !@ARGV || ( @ARGV == 1 && $ARGV[0] eq q{-} ) ) {
+
+    # Reading code from STDIN.  All the code is slurped into
+    # a string.  PPI will barf if the string is just whitespace.
+    my $code_string = do { local $RS = undef; <STDIN> };
+
+    # Notice if STDIN was closed (pipe error, etc)
+    if ( !defined $code_string ) {
+        $code_string = q{};
+    }
+
+    $code_string =~ m{ \S+ }mx || confess qq{Nothing to critique.\n};
+    @FILES = \$code_string;    #Convert to SCALAR ref for PPI
+}
+else {
+
+    # Test to make sure all the specified files or directories
+    # actually exist.  If any one of them is bogus, then die.
+    if ( my $nonexistant = first { !-e $_ } @ARGV ) {
+        my $msg = qq{No such file or directory: '$nonexistant'};
+        pod2usage( -exitstatus => 1, -message => $msg, -verbose => 0 );
+    }
+
+    @FILES = @ARGV;
+}
+
+##############################################################################
+# Sanity checks
+
+# check if Term::ANSIColors is available
+
+eval { require Term::ANSIColor; };
+if ( $EVAL_ERROR && $color ) {
+    print
+      "warning 'Term::ANSIColor' is not available: cannot colorize output\n";
+    $color = 0;
+}
+
+if ($color) {
+    require Term::ANSIColor;
+    colorize_checks();
+}
+
+################
+# process shells
+if ($posix)  { push @shells, 'POSIX'; }
+if ($bourne) { push @shells, 'BOURNE'; }
+
+##############################################################################
+# check the files
+
+for my $file (@FILES) {
+
+    perform_checks($file);
+
+    for my $warn_message ( sort { $a->[0] <=> $b->[0] } @warnings ) {
+        print ${$warn_message}[1];
+    }
+
+    undef @warnings;
+
+}
+
+1;
+
+__END__
+
+=pod
+
+=head1 NAME
+
+C<bashcritic> - critiques shell scripts
+
+=head1 SYNOPSIS
+
+  bashcritic [-012 | --info | --cosmetic | --error]
+             [--posix | --bourne]
+             [--severity number]
+             [--ignore_shebang ]
+             [--list [format]]
+             [-verbose ]
+             {FILE | STDIN}
+
+  Options:
+
+    --error,-e,-0        report only errors
+    --cosmetic,-c,-1     report errors and cosmetic problems
+    --info,-i,2          report error, cosmetic problems and minor issues
+
+    --posix              script should be POSIX compliant
+    --bourne             script should be Bourne shell compatible
+
+    --list [format]      lists implemented tests (formats: trac)
+
+    --ignore-shebang     ignores the script shebang
+    --[no-]color         colorize output
+
+    --help,-h,-?         prints this help message
+        
+    --verbose,-v         increase verbosity
+    --version,-V         prints program version and exits
+
+=head1 DESCRIPTION
+
+critiques shell scripts
+
+=head1 VERSION
+
+Version 0.3.3
+
+=head1 REQUIRED ARGUMENTS
+
+none
+
+=head1 OPTIONS
+
+--error,-e,-0        report only errors
+
+--cosmetic,-c,-1     report errors and cosmetic problems
+
+--info,-i,2          report error, cosmetic problems and minor issues
+
+--posix              script should be POSIX compliant
+
+--bourne             script should be Bourne shell compatible
+
+--list [format]      lists implemented tests (formats: trac)
+
+--ignore-shebang     ignores the script shebang
+
+--[no-]color         colorize output
+
+--help,-h,-?         prints this help message
+
+--verbose,-v         increase verbosity
+
+--version,-V         prints program version and exits
+
+=head1 USAGE EXAMPLES
+
+bashcritic --info file_to_analyze
+
+=head1 DIAGNOSTICS
+
+=head1 EXIT STATUS
+
+1 on error, 0 otherwise
+
+=head1 DEPENDENCIES
+
+bashcritic depends on
+
+=over 4
+
+=item * Carp;
+
+=item * Data::Dumper
+
+=item * English
+
+=item * English
+
+=item * File::Slurp
+
+=item * Getopt::Long
+
+=item * Getopt::Long
+
+=item * List::MoreUtils
+
+=item * List::Util
+
+=item * Pod::Usage
+
+=item * version;
+
+=back
+
+=head1 CONFIGURATION
+
+=head1 INCOMPATIBILITIES
+
+None reported.
+
+=head1 SEE ALSO
+
+=head1 BUGS AND LIMITATIONS
+
+No bugs have been reported.
+
+Please report any bugs or feature requests to matteo.corti@id.ethz.ch,
+or through the web interface at
+https://trac.id.ethz.ch/projects/bashcritic
+
+=head1 AUTHOR
+
+Matteo Corti <matteo.corti@id.ethz.ch>
+
+=head1 LICENSE AND COPYRIGHT
+
+Copyright (c) 2007, ETH Zurich.
+
+This module is free software; you can redistribute it and/or modify it
+under the terms of GNU general public license (gpl) version 3.
+See the LICENSE file for details.
+
+=head1 DISCLAIMER OF WARRANTY
+
+BECAUSE THIS SOFTWARE IS LICENSED FREE OF CHARGE, THERE IS NO WARRANTY
+FOR THE SOFTWARE, TO THE EXTENT PERMITTED BY APPLICABLE LAW. EXCEPT
+WHEN OTHERWISE STATED IN WRITING THE COPYRIGHT HOLDERS AND/OR OTHER
+PARTIES PROVIDE THE SOFTWARE "AS IS" WITHOUT WARRANTY OF ANY KIND,
+EITHER EXPRESSED OR IMPLIED, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+PURPOSE. THE ENTIRE RISK AS TO THE QUALITY AND PERFORMANCE OF THE
+SOFTWARE IS WITH YOU. SHOULD THE SOFTWARE PROVE DEFECTIVE, YOU ASSUME
+THE COST OF ALL NECESSARY SERVICING, REPAIR, OR CORRECTION.
+
+IN NO EVENT UNLESS REQUIRED BY APPLICABLE LAW OR AGREED TO IN WRITING
+WILL ANY COPYRIGHT HOLDER, OR ANY OTHER PARTY WHO MAY MODIFY AND/OR
+REDISTRIBUTE THE SOFTWARE AS PERMITTED BY THE ABOVE LICENCE, BE LIABLE
+TO YOU FOR DAMAGES, INCLUDING ANY GENERAL, SPECIAL, INCIDENTAL, OR
+CONSEQUENTIAL DAMAGES ARISING OUT OF THE USE OR INABILITY TO USE THE
+SOFTWARE (INCLUDING BUT NOT LIMITED TO LOSS OF DATA OR DATA BEING
+RENDERED INACCURATE OR LOSSES SUSTAINED BY YOU OR THIRD PARTIES OR A
+FAILURE OF THE SOFTWARE TO OPERATE WITH ANY OTHER SOFTWARE), EVEN IF
+SUCH HOLDER OR OTHER PARTY HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH
+DAMAGES.
+
+=head1 ACKNOWLEDGMENTS
+
+Many thanks to
+
+* Jan Schampera. His hints on http://www.bash-hackers.org where my
+  first source of inspiration
+
+* Stephan Chazelas for his great help on comp.unix.shell reviewing my
+  work
