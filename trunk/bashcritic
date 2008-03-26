@@ -684,7 +684,7 @@ q{The &>FILE redirection syntax is not part of POSIX, use >FILE 2>&1 instead},
     $checks{BOURNE_ARITH}{function} = sub {
         my $file = shift;
         check_pattern( $file, $checks{BOURNE_ARITH}{severity},
-            '\$\(\(.*\))', $checks{BOURNE_ARITH}{description}, @_, );
+            '\$((.*))', $checks{BOURNE_ARITH}{description}, @_, );
         return;
     };
 

@@ -1,3 +1,7 @@
+2008-03-26  Matteo Corti  <matteo.corti@id.ethz.ch>
+
+	* bashcritic: error in a Bourne specific regex
+
 2008-02-20  Matteo Corti  <matteo.corti@id.ethz.ch>
 
 	* bashcritic: checks for $"..." in shells other than bash or ksh93
