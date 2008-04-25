@@ -688,6 +688,19 @@ q{The &>FILE redirection syntax is not part of POSIX, use >FILE 2>&1 instead},
         return;
     };
 
+    # WHICH
+    $checks{WHICH} = {
+        severity    => 'ERROR',
+        shells      => \@all_shells,
+        description => 'which is not standard, use command -v instead'
+    };
+    $checks{WHICH}{function} = sub {
+        my $file = shift;
+        check_pattern( $file, $checks{WHICH}{severity},
+            q{which}, $checks{WHICH}{description}, @_, );
+        return;
+    };
+
     # RANDOM
     $checks{RANDOM} = {
         severity => 'ERROR',
