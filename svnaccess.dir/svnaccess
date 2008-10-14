@@ -1,5 +1,6 @@
 [/]
 corti = rw
+dballari = rw
 * = r
 
 #trac TRAC_ADMIN = corti
