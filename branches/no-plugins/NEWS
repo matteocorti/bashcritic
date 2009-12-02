@@ -1,0 +1,28 @@
+2008-01-31 Alpha version 0.3.3
+           * corrected a syntax error in a check rule
+2008-01-30 Alpha version 0.3.2 (0.3.1 was never released)
+           * usage documentation
+           * removed the perlcritic outputlevels: we now have
+             error, cosmetic and info only
+           * detects the shell from the shebang
+           * new checks
+             - checks the shebang length
+             - checks for $'...'
+             - checks for command alias and readonly in Bourne shell
+           * version.pm is included in the distribution (since it is needed
+             by Makefile.PL)
+2007-10-20 Alpha version 0.3.0
+           * rules are not checked in comments and strings
+           * warnings are no more grouped by type but sorted by line number
+           * new checks:
+             - $RANDOM $SECONDS are bash/ksh/zsh
+             - $((...)) is POSIX but not Bourne
+             - checks for tilde expansion in Bourne
+             - unset is not in every Bourne shell
+           * fixes:
+             - --help was ignored
+             - missing function for EXPORT_NOT_QUOTED (fixed in 0.2.1)
+             - the shebang is patched by Makefile.PL/make
+2007-10-17 Alpha version 0.2.0 which includes a plethora of changes
+           suggested on comp.unix.shell (see AUTHORS for details and Changes
+           for a detailed list)
