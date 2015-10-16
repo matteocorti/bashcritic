@@ -11,7 +11,7 @@ vendor:    Matteo Corti <matteo.corti@id.ethz.ch>
 packager:  Matteo Corti <matteo.corti@id.ethz.ch>
 license:   GPL
 group:     Development/Tools/Other
-url:       http://trac.id.ethz.ch/projects/bashcritic
+url:       https://github.com/matteocorti/bashcritic
 buildroot: %{_tmppath}/%{name}-%{version}-%(id -u -n)
 buildarch: noarch
 prefix:    %(echo %{_prefix})
