@@ -1,12 +1,16 @@
+%define version 0.3.3
+%define release 0
 %define pkgname bashcritic
 %define filelist %{pkgname}-%{version}-filelist
 %define NVR %{pkgname}-%{version}-%{release}
 %define maketest 1
+%define sourcename bashcritic
+%define packagename bashcritic
 
 name:      bashcritic
 summary:   bashcritic - is a tool to check shell scripts for common pitfalls
-version:   0.3.3
-release:   0
+Version:   %{version}
+Release:   %{release}%{?dist}
 vendor:    Matteo Corti <matteo.corti@id.ethz.ch>
 packager:  Matteo Corti <matteo.corti@id.ethz.ch>
 license:   GPL
